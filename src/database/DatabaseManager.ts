@@ -59,6 +59,19 @@ export interface QueueStats {
   changesRequested: number;
 }
 
+export type ArchiveJobStatus = 'scheduled' | 'in-progress' | 'completed' | 'failed';
+
+export interface ArchiveJobRow {
+  id: number;
+  reviewQueueId: number;
+  status: ArchiveJobStatus;
+  retentionIdentifier: string | null;
+  coldstorageUrl: string | null;
+  error: string | null;
+  scheduledAt: string;
+  completedAt: string | null;
+}
+
 /**
  * SQLite manager for review queue, approval audit trail, and archive jobs.
  * Uses WAL mode for atomic writes (avoids JSON persistence brittleness).
@@ -308,6 +321,113 @@ export class DatabaseManager {
     return this.db
       .prepare(`SELECT * FROM ReviewQueue WHERE assetId = ?`)
       .get(assetId) as ReviewQueueRow | undefined;
+  }
+
+  getReviewQueueById(id: number): ReviewQueueRow | undefined {
+    return this.db
+      .prepare(`SELECT * FROM ReviewQueue WHERE id = ?`)
+      .get(id) as ReviewQueueRow | undefined;
+  }
+
+  /**
+   * Archive jobs due for processing: status=scheduled and scheduledAt <= nowIso.
+   */
+  listDueArchiveJobs(nowIso: string = new Date().toISOString()): ArchiveJobRow[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM ArchiveJob
+         WHERE status = 'scheduled' AND scheduledAt <= ?
+         ORDER BY scheduledAt ASC, id ASC`
+      )
+      .all(nowIso) as ArchiveJobRow[];
+  }
+
+  getArchiveJobById(id: number): ArchiveJobRow | undefined {
+    return this.db
+      .prepare(`SELECT * FROM ArchiveJob WHERE id = ?`)
+      .get(id) as ArchiveJobRow | undefined;
+  }
+
+  getArchiveJobsForReview(reviewQueueId: number): ArchiveJobRow[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM ArchiveJob WHERE reviewQueueId = ? ORDER BY id ASC`
+      )
+      .all(reviewQueueId) as ArchiveJobRow[];
+  }
+
+  /**
+   * Force a scheduled job's due time (used by Day 5 verify to skip the 30-day wait).
+   */
+  setArchiveJobScheduledAt(jobId: number, scheduledAt: string): ArchiveJobRow {
+    const run = this.db.transaction(() => {
+      const existing = this.getArchiveJobById(jobId);
+      if (!existing) {
+        throw new Error(`Unknown ArchiveJob id: ${jobId}`);
+      }
+      this.db
+        .prepare(`UPDATE ArchiveJob SET scheduledAt = ? WHERE id = ?`)
+        .run(scheduledAt, jobId);
+      return this.getArchiveJobById(jobId)!;
+    });
+    return run();
+  }
+
+  /**
+   * Update ArchiveJob status / retention / cold URL / error inside a WAL transaction.
+   */
+  updateArchiveJob(
+    jobId: number,
+    patch: {
+      status: ArchiveJobStatus;
+      retentionIdentifier?: string | null;
+      coldstorageUrl?: string | null;
+      error?: string | null;
+      completedAt?: string | null;
+    }
+  ): ArchiveJobRow {
+    const run = this.db.transaction(() => {
+      const existing = this.getArchiveJobById(jobId);
+      if (!existing) {
+        throw new Error(`Unknown ArchiveJob id: ${jobId}`);
+      }
+
+      const completedAt =
+        patch.completedAt !== undefined
+          ? patch.completedAt
+          : patch.status === 'completed' || patch.status === 'failed'
+            ? new Date().toISOString()
+            : existing.completedAt;
+
+      this.db
+        .prepare(
+          `UPDATE ArchiveJob
+           SET status = @status,
+               retentionIdentifier = @retentionIdentifier,
+               coldstorageUrl = @coldstorageUrl,
+               error = @error,
+               completedAt = @completedAt
+           WHERE id = @id`
+        )
+        .run({
+          id: jobId,
+          status: patch.status,
+          retentionIdentifier:
+            patch.retentionIdentifier !== undefined
+              ? patch.retentionIdentifier
+              : existing.retentionIdentifier,
+          coldstorageUrl:
+            patch.coldstorageUrl !== undefined
+              ? patch.coldstorageUrl
+              : existing.coldstorageUrl,
+          error: patch.error !== undefined ? patch.error : existing.error,
+          completedAt,
+        });
+
+      return this.getArchiveJobById(jobId)!;
+    });
+
+    return run();
   }
 
   close(): void {
