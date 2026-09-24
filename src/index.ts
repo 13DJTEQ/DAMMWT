@@ -16,6 +16,8 @@ export {
   type SubmitApprovalInput,
   type ReviewQueueRow,
   type ApprovalHistoryRow,
+  type ArchiveJobRow,
+  type ArchiveJobStatus,
   type QueueStats,
   type ReviewStatus,
   type ApprovalDecision,
@@ -30,3 +32,8 @@ export {
   type IpcMainLike,
   type InvokeFn,
 } from './ipc/handlers';
+export {
+  ArchiveScheduler,
+  type ArchiveJobResult,
+  type BackendResolver,
+} from './archive/ArchiveScheduler';

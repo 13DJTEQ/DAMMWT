@@ -22,6 +22,7 @@
     "verify": "npm run build && ts-node --transpile-only scripts/verify-day1.ts && ts-node --transpile-only scripts/verify-day2.ts",
     "verify:day1": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
     "verify:day2": "npm run build && ts-node --transpile-only scripts/verify-day2.ts",
+    "verify:day5": "npm run build && ts-node --transpile-only scripts/verify-day5.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
