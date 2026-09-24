@@ -20,3 +20,13 @@ export {
   type ReviewStatus,
   type ApprovalDecision,
 } from './database/DatabaseManager';
+export {
+  IPC_CHANNELS,
+  createDamApi,
+  registerIpcHandlers,
+  type DamApi,
+  type HealthCheckResult,
+  type IpcChannel,
+  type IpcMainLike,
+  type InvokeFn,
+} from './ipc/handlers';
