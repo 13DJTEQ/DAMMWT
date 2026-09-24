@@ -1,8 +1,7 @@
 {
-  "name": "mwt-dam-mvp",
+  "name": "@13djteq/mwt-dam-mvp",
   "version": "0.1.0",
   "description": "MWT Digital Asset Management MVP — Phase 1 review & approval workflow",
-  "private": true,
   "main": "dist/main.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -11,6 +10,13 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/13DJTEQ/DAMMWT.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsc && node scripts/copy-schema.js && npm run build:renderer",
@@ -27,8 +33,14 @@
     "verify:day6": "npm run build && ts-node --transpile-only scripts/verify-day6.ts",
     "verify:day34": "npm run build && ts-node --transpile-only --project tsconfig.verify.json scripts/verify-day34.ts",
     "verify:all": "npm run verify",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
