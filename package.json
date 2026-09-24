@@ -1,0 +1,31 @@
+{
+  "name": "mwt-dam-mvp",
+  "version": "0.1.0",
+  "description": "MWT Digital Asset Management MVP — Phase 1 review & approval workflow",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && node scripts/copy-schema.js",
+    "clean": "rm -rf dist",
+    "verify": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  },
+  "optionalDependencies": {
+    "electron": "^35.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
