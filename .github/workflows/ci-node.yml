@@ -1,13 +1,12 @@
 # CI caller for Node/TypeScript projects (incl. Hermes plugins).
-# Copy this file (or just the `with:` block) into each Node repo's .github/workflows/.
+# DAMMWT: typecheck → build → verify (Day N acceptance) until eslint/unit suite exist.
 name: CI (Node)
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
-# Guard: these callers only run in CONSUMER repos (which have a real project).
-# The template repo itself has no project, so skip to avoid failing CI noise.
+# Guard: skip only in the org template repo (no real project). Runs on DAMMWT.
 jobs:
   call-ci:
     if: github.repository != '13DJTEQ/ci-cd-template'
@@ -15,6 +14,6 @@ jobs:
     with:
       stack: node
       node-version: "20"
-      lint-command: "npm run lint"
+      lint-command: "npm run typecheck"
       build-command: "npm run build"
-      test-command: "npm test"
+      test-command: "npm run verify"
