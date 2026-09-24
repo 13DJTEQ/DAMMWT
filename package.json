@@ -13,7 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsc && node scripts/copy-schema.js",
+    "build": "tsc && node scripts/copy-schema.js && npm run build:renderer",
+    "build:renderer": "node scripts/build-renderer.js",
     "clean": "rm -rf dist",
     "lint": "npm run typecheck",
     "test": "npm run verify",
@@ -23,23 +24,28 @@
     "verify:day1": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
     "verify:day2": "npm run build && ts-node --transpile-only scripts/verify-day2.ts",
     "verify:day5": "npm run build && ts-node --transpile-only scripts/verify-day5.ts",
-    "typecheck": "tsc --noEmit"
+    "verify:day34": "npm run build && ts-node --transpile-only --project tsconfig.verify.json scripts/verify-day34.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1"
+    "better-sqlite3": "^11.8.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.10",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/react-test-renderer": "^18.3.1",
     "electron": "^35.0.0",
+    "esbuild": "^0.25.0",
+    "react-test-renderer": "^18.3.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
-  "optionalDependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  }
+  "optionalDependencies": {}
 }
