@@ -1,0 +1,19 @@
+# CI caller for Python projects.
+name: CI (Python)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+# Guard: these callers only run in CONSUMER repos (which have a real project).
+# The template repo itself has no project, so skip to avoid failing CI noise.
+jobs:
+  call-ci:
+    if: github.repository != '13DJTEQ/ci-cd-template'
+    uses: ./.github/workflows/ci-reusable.yml
+    with:
+      stack: python
+      python-version: "3.12"
+      lint-command: "flake8 ."
+      build-command: "python -m build"
+      test-command: "pytest"
