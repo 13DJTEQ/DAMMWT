@@ -1,7 +1,7 @@
 # Deploy to production — fires on a version tag (v*) like staging,
 # BUT is gated by the `prod` environment's required reviewer (manual approval).
-# Flow: tag -> staging auto-deploys -> prod waits for human approval.
-# Both staging and prod share deploy-reusable.yml; only the environment + gate differ.
+# Flow: tag -> staging auto-deploys (prerelease) -> prod waits for human approval
+# -> full GitHub Release + npm publish to GitHub Packages (@13djteq).
 name: Deploy to Production
 on:
   push:
@@ -15,3 +15,4 @@ jobs:
     with:
       environment: prod
       deploy-command: "./scripts/deploy.sh prod ${{ github.ref_name }}"
+    secrets: inherit

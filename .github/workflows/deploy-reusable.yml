@@ -1,5 +1,6 @@
 # Reusable deploy — same artifact promoted through environments.
-# Triggered by deploy-staging.yml on tag push. Add more callers for prod.
+# Triggered by deploy-staging.yml / deploy-prod.yml on tag push.
+# Env for scripts/deploy.sh: GH_TOKEN (releases) + NODE_AUTH_TOKEN (npm publish).
 name: Deploy Reusable
 on:
   workflow_call:
@@ -17,18 +18,34 @@ on:
     secrets:
       DEPLOY_TOKEN:
         required: false
+      GH_TOKEN:
+        required: false
+      NODE_AUTH_TOKEN:
+        required: false
 jobs:
   deploy:
     environment:
       name: ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@13djteq"
       - name: Deploy (${{ inputs.environment }})
         env:
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN || github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: ${{ inputs.deploy-command }}

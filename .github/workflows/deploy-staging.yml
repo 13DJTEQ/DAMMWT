@@ -1,4 +1,5 @@
 # Deploy to staging — fires ONLY on a version tag (v*).
+# Marks the GitHub Release as prerelease (no npm publish).
 # The tag is produced by release-please.yml, so deploys are always versioned.
 name: Deploy to Staging
 on:
@@ -10,3 +11,4 @@ jobs:
     with:
       environment: staging
       deploy-command: "./scripts/deploy.sh staging ${{ github.ref_name }}"
+    secrets: inherit
