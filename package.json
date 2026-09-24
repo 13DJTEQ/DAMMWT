@@ -8,6 +8,8 @@
   "scripts": {
     "build": "tsc && node scripts/copy-schema.js",
     "clean": "rm -rf dist",
+    "lint": "npm run typecheck",
+    "test": "npm run verify",
     "verify": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
     "typecheck": "tsc --noEmit"
   },

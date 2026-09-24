@@ -63,4 +63,17 @@ Notion: [DAM MVP Phase 1 Day 1 Scaffold](https://app.notion.com/p/DAM-MVP-Phase-
 
 ## CI
 
-GitHub Actions workflows under `.github/workflows/` come from the org CI/CD template (lint/build/test callers, release-please, staging/prod deploy). Wire `ci-node.yml` for this package when enabling CI on PRs.
+On every PR and push to `main`, **CI (Node)** runs:
+
+| Step | Command |
+|------|---------|
+| Install | `npm ci` (Node 20) |
+| Lint | `npm run typecheck` |
+| Build | `npm run build` |
+| Test / MOE | `npm run verify` |
+
+Also required for Conventional Commits: **Commitlint**. Verify stdout is summarized on the Actions job and uploaded as artifact `verify-report`.
+
+Unused stack callers (`ci-go` / `ci-python` / `ci-ios`) were removed from this Node-only repo. Staging/prod deploy workflows remain placeholder until a launch target is chosen. Release versioning uses release-please (`release-type: node`).
+
+**Required checks (when branch protection is enabled):** `CI (Node)` / `call-ci`, `Commitlint`.

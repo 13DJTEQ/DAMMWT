@@ -106,5 +106,27 @@ jobs:
         run: ${{ inputs.build-command }}
 
       - name: Test
+        id: test
         if: inputs.test-command != ''
-        run: ${{ inputs.test-command }}
+        run: |
+          set -o pipefail
+          ${{ inputs.test-command }} 2>&1 | tee verify-output.txt
+          {
+            echo "## Verify / test report"
+            echo ""
+            echo "- Stack: \`${{ inputs.stack }}\`"
+            echo "- SHA: \`${{ github.sha }}\`"
+            echo ""
+            echo '```'
+            cat verify-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verify report
+        if: inputs.test-command != '' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-report
+          path: ${{ inputs.working-directory }}/verify-output.txt
+          if-no-files-found: ignore
+          retention-days: 14
