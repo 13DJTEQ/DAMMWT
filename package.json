@@ -3,14 +3,25 @@
   "version": "0.1.0",
   "description": "MWT Digital Asset Management MVP — Phase 1 review & approval workflow",
   "private": true,
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc && node scripts/copy-schema.js",
     "clean": "rm -rf dist",
     "lint": "npm run typecheck",
     "test": "npm run verify",
-    "verify": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
+    "dev": "npm run build && electron .",
+    "start": "npm run build && electron .",
+    "verify": "npm run build && ts-node --transpile-only scripts/verify-day1.ts && ts-node --transpile-only scripts/verify-day2.ts",
+    "verify:day1": "npm run build && ts-node --transpile-only scripts/verify-day1.ts",
+    "verify:day2": "npm run build && ts-node --transpile-only scripts/verify-day2.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
@@ -22,11 +33,11 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.13.10",
+    "electron": "^35.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
   "optionalDependencies": {
-    "electron": "^35.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }
