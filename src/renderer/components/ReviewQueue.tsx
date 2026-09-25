@@ -12,9 +12,10 @@ interface ReviewQueueProps {
 
 const FILTERS: Array<{ value: QueueFilter; label: string }> = [
   { value: 'pending', label: 'Pending' },
+  { value: 'love', label: 'Love' },
+  { value: 'keep', label: 'Keep' },
+  { value: 'reject', label: 'Reject' },
   { value: 'changesRequested', label: 'Changes' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
   { value: 'all', label: 'All' },
 ];
 
@@ -22,6 +23,12 @@ function statusLabel(status: ReviewStatus): string {
   switch (status) {
     case 'changesRequested':
       return 'Changes requested';
+    case 'love':
+      return 'Love';
+    case 'keep':
+      return 'Keep';
+    case 'reject':
+      return 'Reject';
     default:
       return status.charAt(0).toUpperCase() + status.slice(1);
   }
@@ -49,10 +56,10 @@ export function ReviewQueue({
   onSelect,
 }: ReviewQueueProps): JSX.Element {
   return (
-    <section className="review-queue" aria-label="Review queue">
+    <section className="review-queue" aria-label="Gallery queue">
       <header className="panel-header">
-        <h2>Queue</h2>
-        <div className="filter-row" role="tablist" aria-label="Filter by status">
+        <h2>Gallery</h2>
+        <div className="filter-row" role="tablist" aria-label="Filter by decision">
           {FILTERS.map(({ value, label }) => (
             <button
               key={value}
@@ -71,7 +78,7 @@ export function ReviewQueue({
       </header>
 
       {loadState === 'loading' && queue.length === 0 ? (
-        <p className="panel-state">Loading review queue…</p>
+        <p className="panel-state">Loading gallery…</p>
       ) : null}
 
       {loadState === 'ready' && queue.length === 0 ? (
@@ -81,7 +88,7 @@ export function ReviewQueue({
       ) : null}
 
       {queue.length > 0 ? (
-        <ul className="queue-list">
+        <ul className="gallery-queue-list">
           {queue.map((row) => {
             const selected = row.assetId === selectedAssetId;
             return (
@@ -89,22 +96,33 @@ export function ReviewQueue({
                 <button
                   type="button"
                   className={
-                    selected ? 'queue-item queue-item--selected' : 'queue-item'
+                    selected
+                      ? 'gallery-queue-item gallery-queue-item--selected'
+                      : 'gallery-queue-item'
                   }
                   onClick={() => onSelect(row.assetId)}
                   aria-current={selected ? 'true' : undefined}
                 >
-                  <span className="queue-item__title">{row.assetId}</span>
-                  <span className="queue-item__meta">
-                    <span className={`status-chip status-chip--${row.status}`}>
-                      {statusLabel(row.status)}
-                    </span>
-                    <span>v{row.version}</span>
-                    <span>{formatUpdated(row.updatedAt)}</span>
+                  <span className="gallery-queue-item__thumb">
+                    {row.previewUrl ? (
+                      <img src={row.previewUrl} alt="" />
+                    ) : (
+                      <span className="gallery-queue-item__placeholder">—</span>
+                    )}
                   </span>
-                  {row.projectTag ? (
-                    <span className="queue-item__tag">{row.projectTag}</span>
-                  ) : null}
+                  <span className="gallery-queue-item__body">
+                    <span className="queue-item__title">{row.assetId}</span>
+                    <span className="queue-item__meta">
+                      <span className={`status-chip status-chip--${row.status}`}>
+                        {statusLabel(row.status)}
+                      </span>
+                      <span>v{row.version}</span>
+                      <span>{formatUpdated(row.updatedAt)}</span>
+                    </span>
+                    {row.projectTag ? (
+                      <span className="queue-item__tag">{row.projectTag}</span>
+                    ) : null}
+                  </span>
                 </button>
               </li>
             );

@@ -43,12 +43,12 @@ async function main(): Promise<void> {
 
     const approved = db.submitApproval({
       assetId: 'archive-1',
-      decision: 'approved',
+      decision: 'keep',
       reviewedBy: 'day5-verify',
       notes: 'schedule archive',
     });
-    if (approved.status !== 'approved' || !approved.archiveScheduledAt) {
-      throw new Error(`Expected approved + archiveScheduledAt, got ${JSON.stringify(approved)}`);
+    if (approved.status !== 'keep' || !approved.archiveScheduledAt) {
+      throw new Error(`Expected keep + archiveScheduledAt, got ${JSON.stringify(approved)}`);
     }
 
     const jobs = db.getArchiveJobsForReview(approved.id);

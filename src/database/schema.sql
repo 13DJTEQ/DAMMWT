@@ -1,4 +1,4 @@
--- DAM MVP Phase 1 Day 1 schema
+-- DAM MVP schema (V-0.5 Gallery decisions)
 -- SQLite + WAL; transactional review queue, audit trail, archive jobs.
 
 PRAGMA foreign_keys = ON;
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS ReviewQueue (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   assetId TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL CHECK (
-    status IN ('pending', 'approved', 'rejected', 'changesRequested')
+    status IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
   ) DEFAULT 'pending',
   version INTEGER NOT NULL DEFAULT 1,
   sourceBackend TEXT NOT NULL CHECK (
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS ApprovalHistory (
   reviewQueueId INTEGER NOT NULL,
   version INTEGER NOT NULL,
   decision TEXT NOT NULL CHECK (
-    decision IN ('pending', 'approved', 'rejected', 'changesRequested')
+    decision IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
   ),
   notes TEXT,
   reviewedBy TEXT,

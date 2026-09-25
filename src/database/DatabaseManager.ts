@@ -3,8 +3,21 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { SourceBackendType } from '../storage/StorageBackend';
 
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'changesRequested';
+/** Gallery V1 decisions + pending / resubmit path from Week 1. */
+export type ReviewStatus =
+  | 'pending'
+  | 'love'
+  | 'keep'
+  | 'reject'
+  | 'changesRequested';
+
 export type ApprovalDecision = ReviewStatus;
+
+/** Positive gallery decisions that schedule 30-day archive. */
+export const ARCHIVE_ON_DECISIONS: ReadonlySet<ApprovalDecision> = new Set([
+  'love',
+  'keep',
+]);
 
 export interface IngestAssetInput {
   assetId: string;
@@ -54,8 +67,9 @@ export interface ApprovalHistoryRow {
 export interface QueueStats {
   total: number;
   pending: number;
-  approved: number;
-  rejected: number;
+  love: number;
+  keep: number;
+  reject: number;
   changesRequested: number;
 }
 
@@ -73,7 +87,7 @@ export interface ArchiveJobRow {
 }
 
 /**
- * SQLite manager for review queue, approval audit trail, and archive jobs.
+ * SQLite manager for review queue, gallery decisions, and archive jobs.
  * Uses WAL mode for atomic writes (avoids JSON persistence brittleness).
  */
 export class DatabaseManager {
@@ -90,6 +104,104 @@ export class DatabaseManager {
     const schemaPath = this.resolveSchemaPath();
     const ddl = readFileSync(schemaPath, 'utf8');
     this.db.exec(ddl);
+    this.migrateLegacyApproved();
+  }
+
+  /**
+   * Week 1 used `approved`; Gallery V1 uses `keep` (and distinct `love`).
+   * Safe no-op on fresh Gallery schemas.
+   */
+  private migrateLegacyApproved(): void {
+    const queueSql = (
+      this.db
+        .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ReviewQueue'`)
+        .get() as { sql: string } | undefined
+    )?.sql;
+    if (queueSql && queueSql.includes("'approved'") && !queueSql.includes("'love'")) {
+      this.rebuildQueueTablesForGallery();
+      return;
+    }
+    try {
+      this.db.exec(`UPDATE ReviewQueue SET status = 'keep' WHERE status = 'approved'`);
+      this.db.exec(
+        `UPDATE ApprovalHistory SET decision = 'keep' WHERE decision = 'approved'`
+      );
+    } catch {
+      /* CHECK may already exclude approved */
+    }
+  }
+
+  private rebuildQueueTablesForGallery(): void {
+    this.db.exec(`PRAGMA foreign_keys = OFF`);
+    this.db.exec(`
+      CREATE TABLE ReviewQueue_v1 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        assetId TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL CHECK (
+          status IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
+        ) DEFAULT 'pending',
+        version INTEGER NOT NULL DEFAULT 1,
+        sourceBackend TEXT NOT NULL CHECK (
+          sourceBackend IN ('local', 'fal.ai', 'replit', 'comfyui')
+        ),
+        sourceIdentifier TEXT NOT NULL,
+        previewUrl TEXT NOT NULL,
+        projectTag TEXT,
+        tags TEXT,
+        designatedReviewer TEXT,
+        description TEXT,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        archiveScheduledAt TEXT
+      );
+
+      INSERT INTO ReviewQueue_v1 (
+        id, assetId, status, version, sourceBackend, sourceIdentifier, previewUrl,
+        projectTag, tags, designatedReviewer, description, createdAt, updatedAt,
+        archiveScheduledAt
+      )
+      SELECT
+        id, assetId,
+        CASE status WHEN 'approved' THEN 'keep' WHEN 'rejected' THEN 'reject' ELSE status END,
+        version, sourceBackend, sourceIdentifier, previewUrl,
+        projectTag, tags, designatedReviewer, description, createdAt, updatedAt,
+        archiveScheduledAt
+      FROM ReviewQueue;
+
+      CREATE TABLE ApprovalHistory_v1 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reviewQueueId INTEGER NOT NULL,
+        version INTEGER NOT NULL,
+        decision TEXT NOT NULL CHECK (
+          decision IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
+        ),
+        notes TEXT,
+        reviewedBy TEXT,
+        reviewedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (reviewQueueId) REFERENCES ReviewQueue_v1(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO ApprovalHistory_v1 (
+        id, reviewQueueId, version, decision, notes, reviewedBy, reviewedAt
+      )
+      SELECT
+        id, reviewQueueId, version,
+        CASE decision WHEN 'approved' THEN 'keep' WHEN 'rejected' THEN 'reject' ELSE decision END,
+        notes, reviewedBy, reviewedAt
+      FROM ApprovalHistory;
+
+      DROP TABLE ApprovalHistory;
+      DROP TABLE ReviewQueue;
+      ALTER TABLE ReviewQueue_v1 RENAME TO ReviewQueue;
+      ALTER TABLE ApprovalHistory_v1 RENAME TO ApprovalHistory;
+
+      CREATE INDEX IF NOT EXISTS idx_review_queue_status ON ReviewQueue(status);
+      CREATE INDEX IF NOT EXISTS idx_review_queue_reviewer ON ReviewQueue(designatedReviewer);
+      CREATE INDEX IF NOT EXISTS idx_review_queue_archive ON ReviewQueue(archiveScheduledAt);
+      CREATE INDEX IF NOT EXISTS idx_approval_history_queue ON ApprovalHistory(reviewQueueId);
+      CREATE INDEX IF NOT EXISTS idx_approval_history_version ON ApprovalHistory(reviewQueueId, version);
+    `);
+    this.db.exec(`PRAGMA foreign_keys = ON`);
   }
 
   private resolveSchemaPath(): string {
@@ -153,9 +265,9 @@ export class DatabaseManager {
   }
 
   /**
-   * Transactional approval: update queue status + write history row.
-   * Approvals schedule a 30-day archive job.
-   * changesRequested leaves the asset awaiting resubmit (version stays until resubmit).
+   * Transactional gallery/formal decision: update queue status + write history.
+   * love/keep schedule a 30-day archive job.
+   * changesRequested leaves the asset awaiting resubmit.
    */
   submitApproval(input: SubmitApprovalInput): ReviewQueueRow {
     const run = this.db.transaction(() => {
@@ -169,10 +281,9 @@ export class DatabaseManager {
         );
       }
 
-      const archiveScheduledAt =
-        input.decision === 'approved'
-          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          : null;
+      const archiveScheduledAt = ARCHIVE_ON_DECISIONS.has(input.decision)
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
 
       this.db
         .prepare(
@@ -202,7 +313,7 @@ export class DatabaseManager {
           reviewedBy: input.reviewedBy,
         });
 
-      if (input.decision === 'approved' && archiveScheduledAt) {
+      if (archiveScheduledAt) {
         this.db
           .prepare(
             `INSERT INTO ArchiveJob (
@@ -286,19 +397,28 @@ export class DatabaseManager {
       .prepare(
         `SELECT status, COUNT(*) AS count FROM ReviewQueue GROUP BY status`
       )
-      .all() as Array<{ status: ReviewStatus; count: number }>;
+      .all() as Array<{ status: string; count: number }>;
 
     const stats: QueueStats = {
       total: 0,
       pending: 0,
-      approved: 0,
-      rejected: 0,
+      love: 0,
+      keep: 0,
+      reject: 0,
       changesRequested: 0,
     };
 
     for (const row of rows) {
       stats.total += row.count;
-      stats[row.status] = row.count;
+      const key =
+        row.status === 'approved'
+          ? 'keep'
+          : row.status === 'rejected'
+            ? 'reject'
+            : row.status;
+      if (key in stats && key !== 'total') {
+        stats[key as keyof Omit<QueueStats, 'total'>] += row.count;
+      }
     }
     return stats;
   }
@@ -329,9 +449,6 @@ export class DatabaseManager {
       .get(id) as ReviewQueueRow | undefined;
   }
 
-  /**
-   * Archive jobs due for processing: status=scheduled and scheduledAt <= nowIso.
-   */
   listDueArchiveJobs(nowIso: string = new Date().toISOString()): ArchiveJobRow[] {
     return this.db
       .prepare(
@@ -356,9 +473,6 @@ export class DatabaseManager {
       .all(reviewQueueId) as ArchiveJobRow[];
   }
 
-  /**
-   * Force a scheduled job's due time (used by Day 5 verify to skip the 30-day wait).
-   */
   setArchiveJobScheduledAt(jobId: number, scheduledAt: string): ArchiveJobRow {
     const run = this.db.transaction(() => {
       const existing = this.getArchiveJobById(jobId);
@@ -373,9 +487,6 @@ export class DatabaseManager {
     return run();
   }
 
-  /**
-   * Update ArchiveJob status / retention / cold URL / error inside a WAL transaction.
-   */
   updateArchiveJob(
     jobId: number,
     patch: {

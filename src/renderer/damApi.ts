@@ -1,6 +1,6 @@
 /**
  * Typed DAM API contract for the renderer.
- * Day 2 preload exposes these on `window.damApi`; verify/tests inject a mock.
+ * Preload exposes these on `window.damApi`; verify/tests inject a mock.
  */
 import type {
   ApprovalHistoryRow,

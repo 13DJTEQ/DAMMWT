@@ -8,9 +8,20 @@ interface VersionHistoryProps {
 }
 
 function decisionLabel(decision: string): string {
-  if (decision === 'changesRequested') return 'Changes requested';
-  if (decision === 'pending') return 'Submitted';
-  return decision.charAt(0).toUpperCase() + decision.slice(1);
+  switch (decision) {
+    case 'changesRequested':
+      return 'Changes requested';
+    case 'pending':
+      return 'Submitted';
+    case 'love':
+      return 'Love';
+    case 'keep':
+      return 'Keep';
+    case 'reject':
+      return 'Reject';
+    default:
+      return decision.charAt(0).toUpperCase() + decision.slice(1);
+  }
 }
 
 function formatWhen(iso: string): string {

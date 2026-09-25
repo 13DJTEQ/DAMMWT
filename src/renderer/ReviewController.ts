@@ -1,6 +1,6 @@
 /**
- * Headless review workspace controller — shared by App and verify-day34.
- * Owns queue/stats load + decision refresh so UI and tests share one data path.
+ * Gallery V1 review controller — shared by App and verify scripts.
+ * Owns queue/stats load + love/keep/reject decisions with notes.
  */
 import {
   getDamApi,
@@ -25,6 +25,7 @@ export interface ReviewControllerSnapshot {
   selected: ReviewQueueRow | null;
   history: ApprovalHistoryRow[];
   busy: boolean;
+  notesDraft: string;
 }
 
 type Listener = (snapshot: ReviewControllerSnapshot) => void;
@@ -32,8 +33,9 @@ type Listener = (snapshot: ReviewControllerSnapshot) => void;
 const EMPTY_STATS: QueueStats = {
   total: 0,
   pending: 0,
-  approved: 0,
-  rejected: 0,
+  love: 0,
+  keep: 0,
+  reject: 0,
   changesRequested: 0,
 };
 
@@ -47,6 +49,7 @@ export class ReviewController {
   private selectedAssetId: string | null = null;
   private history: ApprovalHistoryRow[] = [];
   private busy = false;
+  private notesDraft = '';
   private listeners = new Set<Listener>();
 
   constructor(api?: DamApi) {
@@ -74,6 +77,7 @@ export class ReviewController {
       selected,
       history: this.history,
       busy: this.busy,
+      notesDraft: this.notesDraft,
     };
   }
 
@@ -82,8 +86,14 @@ export class ReviewController {
     return this.refresh();
   }
 
+  setNotesDraft(notes: string): void {
+    this.notesDraft = notes;
+    this.emit();
+  }
+
   selectAsset(assetId: string | null): void {
     this.selectedAssetId = assetId;
+    this.notesDraft = '';
     this.emit();
     if (assetId) {
       void this.loadHistory(assetId);
@@ -112,8 +122,10 @@ export class ReviewController {
         !queue.some((row) => row.assetId === this.selectedAssetId)
       ) {
         this.selectedAssetId = queue[0]?.assetId ?? null;
+        this.notesDraft = '';
       } else if (!this.selectedAssetId && queue.length > 0) {
         this.selectedAssetId = queue[0].assetId;
+        this.notesDraft = '';
       }
 
       if (this.selectedAssetId) {
@@ -133,12 +145,18 @@ export class ReviewController {
   }
 
   async submitApproval(
-    input: Omit<SubmitApprovalInput, 'assetId'> & { assetId?: string }
+    input: Omit<SubmitApprovalInput, 'assetId' | 'notes'> & {
+      assetId?: string;
+      notes?: string;
+    }
   ): Promise<ReviewQueueRow> {
     const assetId = input.assetId ?? this.selectedAssetId;
     if (!assetId) {
       throw new Error('No asset selected for approval');
     }
+
+    const notes =
+      input.notes !== undefined ? input.notes : this.notesDraft.trim() || undefined;
 
     this.busy = true;
     this.error = null;
@@ -149,8 +167,9 @@ export class ReviewController {
         assetId,
         decision: input.decision,
         reviewedBy: input.reviewedBy,
-        notes: input.notes,
+        notes,
       });
+      this.notesDraft = '';
       await this.refresh();
       return updated;
     } catch (err) {
@@ -210,7 +229,6 @@ export class ReviewController {
     }
   }
 
-  /** Convenience for tests when stats have not loaded yet. */
   static emptyStats(): QueueStats {
     return { ...EMPTY_STATS };
   }

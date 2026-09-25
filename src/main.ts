@@ -4,8 +4,8 @@ import { DatabaseManager } from './database/DatabaseManager';
 import { registerIpcHandlers } from './ipc/handlers';
 
 /**
- * Electron main process (Day 2).
- * Boots SQLite under userData, registers IPC, then opens a window.
+ * Electron main process.
+ * Boots SQLite under userData, registers IPC, then loads the Gallery UI.
  * No HTTP server — renderer talks only through preload → ipcMain.
  */
 
@@ -15,7 +15,7 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    show: false,
+    show: true,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -24,8 +24,9 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  // Day 2: IPC shell only — React UI arrives Days 3–4.
-  void win.loadURL('about:blank');
+  // Days 3–4 + V-0.5 renderer: built to dist/renderer/ by scripts/build-renderer.js
+  const rendererHtml = join(__dirname, 'renderer', 'index.html');
+  void win.loadFile(rendererHtml);
   return win;
 }
 

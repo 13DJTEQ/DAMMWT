@@ -12,6 +12,7 @@ export { FalBackend } from './storage/FalBackend';
 export { LocalBackend } from './storage/LocalBackend';
 export {
   DatabaseManager,
+  ARCHIVE_ON_DECISIONS,
   type IngestAssetInput,
   type SubmitApprovalInput,
   type ReviewQueueRow,

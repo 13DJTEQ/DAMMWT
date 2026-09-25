@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApprovalCard } from './components/ApprovalCard';
+import { ApprovalCard, type GalleryDecision } from './components/ApprovalCard';
 import { ReviewQueue } from './components/ReviewQueue';
 import { StatsBar } from './components/StatsBar';
 import { VersionHistory } from './components/VersionHistory';
@@ -39,14 +39,25 @@ export function App({
     return unsub;
   }, [controller]);
 
+  const decide = (decision: GalleryDecision, notes?: string): void => {
+    void controller
+      .submitApproval({
+        decision,
+        reviewedBy,
+        notes: notes?.trim() ? notes : undefined,
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <div className="app-shell">
       <header className="shell-header">
         <div className="brand-block">
           <p className="brand-name">MWT DAM</p>
-          <h1 className="shell-title">Review workspace</h1>
+          <h1 className="shell-title">Gallery</h1>
           <p className="shell-lede">
-            Decide pending assets, track resubmits, and keep queue stats in view.
+            Love, keep, or reject assets with steering notes — Gallery V1 on Electron
+            + SQLite.
           </p>
         </div>
         <StatsBar stats={snap.stats} />
@@ -54,7 +65,7 @@ export function App({
 
       {snap.loadState === 'error' && snap.error ? (
         <div className="banner banner--error" role="alert">
-          <strong>Could not load queue.</strong> {snap.error}
+          <strong>Could not load gallery.</strong> {snap.error}
           <button
             type="button"
             className="btn btn--ghost"
@@ -84,33 +95,9 @@ export function App({
             asset={snap.selected}
             busy={snap.busy}
             reviewedBy={reviewedBy}
-            onApprove={(notes) => {
-              void controller
-                .submitApproval({
-                  decision: 'approved',
-                  reviewedBy,
-                  notes,
-                })
-                .catch(() => undefined);
-            }}
-            onReject={(notes) => {
-              void controller
-                .submitApproval({
-                  decision: 'rejected',
-                  reviewedBy,
-                  notes,
-                })
-                .catch(() => undefined);
-            }}
-            onRequestChanges={(notes) => {
-              void controller
-                .submitApproval({
-                  decision: 'changesRequested',
-                  reviewedBy,
-                  notes,
-                })
-                .catch(() => undefined);
-            }}
+            notes={snap.notesDraft}
+            onNotesChange={(notes) => controller.setNotesDraft(notes)}
+            onDecide={decide}
           />
           <VersionHistory
             asset={snap.selected}
