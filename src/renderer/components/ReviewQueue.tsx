@@ -1,4 +1,8 @@
-import type { PartitionFilter, QueueFilter } from '../ReviewController';
+import type {
+  PartitionFilter,
+  ProjectFilter,
+  QueueFilter,
+} from '../ReviewController';
 import type { MediaPartition, ReviewQueueRow, ReviewStatus } from '../damApi';
 import { getDamApi } from '../damApi';
 
@@ -6,10 +10,13 @@ interface ReviewQueueProps {
   queue: ReviewQueueRow[];
   filter: QueueFilter;
   partitionFilter: PartitionFilter;
+  projectFilter: ProjectFilter;
+  availableProjects: string[];
   selectedAssetId: string | null;
   loadState: 'idle' | 'loading' | 'ready' | 'error';
   onFilterChange: (filter: QueueFilter) => void;
   onPartitionChange: (partition: PartitionFilter) => void;
+  onProjectChange: (project: ProjectFilter) => void;
   onSelect: (assetId: string) => void;
 }
 
@@ -75,12 +82,17 @@ export function ReviewQueue({
   queue,
   filter,
   partitionFilter,
+  projectFilter,
+  availableProjects,
   selectedAssetId,
   loadState,
   onFilterChange,
   onPartitionChange,
+  onProjectChange,
   onSelect,
 }: ReviewQueueProps): JSX.Element {
+  const useProjectSelect = availableProjects.length > 8;
+
   return (
     <section className="review-queue" aria-label="Gallery queue">
       <header className="panel-header">
@@ -107,6 +119,67 @@ export function ReviewQueue({
             </button>
           ))}
         </div>
+        {availableProjects.length > 0 ? (
+          useProjectSelect ? (
+            <div className="filter-row filter-row--project">
+              <label className="filter-select-label" htmlFor="project-filter">
+                Project
+              </label>
+              <select
+                id="project-filter"
+                className="filter-select"
+                aria-label="Filter by project"
+                value={projectFilter}
+                onChange={(e) =>
+                  onProjectChange(e.target.value as ProjectFilter)
+                }
+              >
+                <option value="all">All projects</option>
+                {availableProjects.map((slug) => (
+                  <option key={slug} value={slug}>
+                    {slug}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div
+              className="filter-row"
+              role="tablist"
+              aria-label="Filter by project"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={projectFilter === 'all'}
+                className={
+                  projectFilter === 'all'
+                    ? 'filter-btn filter-btn--project filter-btn--active'
+                    : 'filter-btn filter-btn--project'
+                }
+                onClick={() => onProjectChange('all')}
+              >
+                All projects
+              </button>
+              {availableProjects.map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={projectFilter === slug}
+                  className={
+                    projectFilter === slug
+                      ? 'filter-btn filter-btn--project filter-btn--active'
+                      : 'filter-btn filter-btn--project'
+                  }
+                  onClick={() => onProjectChange(slug)}
+                >
+                  {slug}
+                </button>
+              ))}
+            </div>
+          )
+        ) : null}
         <div className="filter-row" role="tablist" aria-label="Filter by decision">
           {FILTERS.map(({ value, label }) => (
             <button

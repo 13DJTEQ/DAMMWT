@@ -5,18 +5,23 @@ import {
   type MediaPartition,
 } from '../domain/gallery';
 import { displayTitle, partitionLabel } from '../media/manifest';
+import { resolveProjectSlug } from '../media/projectSlug';
 
 export type SectionFilter = MediaPartition | 'all';
+export type ProjectFilter = 'all' | string;
 
 interface GalleryListProps {
   assets: GalleryAsset[];
   selectedId: string | null;
   section: SectionFilter;
   filter: GalleryDecision | 'all';
+  projectFilter: ProjectFilter;
   availableSections: MediaPartition[];
+  availableProjects: string[];
   onSelect: (assetId: string) => void;
   onSection: (section: SectionFilter) => void;
   onFilter: (filter: GalleryDecision | 'all') => void;
+  onProject: (project: ProjectFilter) => void;
 }
 
 const FILTERS: Array<GalleryDecision | 'all'> = [
@@ -33,22 +38,30 @@ export function GalleryList({
   selectedId,
   section,
   filter,
+  projectFilter,
   availableSections,
+  availableProjects,
   onSelect,
   onSection,
   onFilter,
+  onProject,
 }: GalleryListProps): JSX.Element {
   const sectioned =
     section === 'all'
       ? assets
       : assets.filter((a) => (a.partition ?? 'tattoos') === section);
+  const projected =
+    projectFilter === 'all'
+      ? sectioned
+      : sectioned.filter((a) => resolveProjectSlug(a) === projectFilter);
   const visible =
     filter === 'all'
-      ? sectioned
-      : sectioned.filter((a) => a.status === filter);
+      ? projected
+      : projected.filter((a) => a.status === filter);
 
   const sectionTitle =
     section === 'all' ? 'Gallery' : partitionLabel(section);
+  const useProjectSelect = availableProjects.length > 8;
 
   return (
     <section className="panel gallery-list" aria-label="Gallery queue">
@@ -68,6 +81,61 @@ export function GalleryList({
             </button>
           ))}
         </div>
+        {availableProjects.length > 0 ? (
+          useProjectSelect ? (
+            <div className="filter-row filter-row--project">
+              <label className="filter-select-label" htmlFor="web-project-filter">
+                Project
+              </label>
+              <select
+                id="web-project-filter"
+                className="filter-select"
+                aria-label="Filter by project"
+                value={projectFilter}
+                onChange={(e) => onProject(e.target.value as ProjectFilter)}
+              >
+                <option value="all">All projects</option>
+                {availableProjects.map((slug) => (
+                  <option key={slug} value={slug}>
+                    {slug}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div
+              className="filter-row"
+              role="tablist"
+              aria-label="Filter by project"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={projectFilter === 'all'}
+                className={
+                  projectFilter === 'all' ? 'chip chip--active' : 'chip'
+                }
+                onClick={() => onProject('all')}
+              >
+                All projects
+              </button>
+              {availableProjects.map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  role="tab"
+                  aria-selected={projectFilter === slug}
+                  className={
+                    projectFilter === slug ? 'chip chip--active' : 'chip'
+                  }
+                  onClick={() => onProject(slug)}
+                >
+                  {slug}
+                </button>
+              ))}
+            </div>
+          )
+        ) : null}
         <div className="filter-row" role="tablist" aria-label="Filter by decision">
           {FILTERS.map((key) => (
             <button

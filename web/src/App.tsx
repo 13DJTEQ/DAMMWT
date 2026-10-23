@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DecisionPanel } from './components/DecisionPanel';
 import {
   GalleryList,
+  type ProjectFilter,
   type SectionFilter,
 } from './components/GalleryList';
 import { SpiralAccent } from './components/SpiralAccent';
@@ -13,6 +14,7 @@ import {
   type MediaPartition,
   type SubmitDecision,
 } from './domain/gallery';
+import { collectProjectSlugs } from './media/projectSlug';
 import { createGalleryStore } from './storage/createStore';
 import type { GalleryStore } from './storage/GalleryStore';
 import { createSyncClient } from './sync/createSync';
@@ -52,6 +54,7 @@ export function App(): JSX.Element {
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [section, setSection] = useState<SectionFilter>('tattoos');
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>('all');
   const [filter, setFilter] = useState<GalleryDecision | 'all'>('all');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,6 +64,11 @@ export function App(): JSX.Element {
 
   const selected = assets.find((a) => a.assetId === selectedId) ?? null;
   const stats = computeStats(assets);
+
+  const availableProjects = useMemo(
+    () => collectProjectSlugs(assets),
+    [assets],
+  );
 
   const availableSections = useMemo(() => {
     const present = new Set<MediaPartition>();
@@ -212,10 +220,13 @@ export function App(): JSX.Element {
           selectedId={selectedId}
           section={section}
           filter={filter}
+          projectFilter={projectFilter}
           availableSections={availableSections}
+          availableProjects={availableProjects}
           onSelect={setSelectedId}
           onSection={onSection}
           onFilter={setFilter}
+          onProject={setProjectFilter}
         />
         <DecisionPanel
           asset={selected}

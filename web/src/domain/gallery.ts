@@ -37,6 +37,8 @@ export interface GalleryAsset {
   /** Optional Notion / Drive / Supabase / CDN URL. */
   cloudUrl?: string | null;
   projectTag: string | null;
+  /** Project section slug when known (manifest.project / projects/<slug>/). */
+  project?: string | null;
   tags: string[];
   description: string | null;
   notes: string | null;

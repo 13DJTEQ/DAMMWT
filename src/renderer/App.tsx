@@ -113,6 +113,8 @@ export function App({
           queue={snap.queue}
           filter={snap.filter}
           partitionFilter={snap.partitionFilter}
+          projectFilter={snap.projectFilter}
+          availableProjects={snap.availableProjects}
           selectedAssetId={snap.selectedAssetId}
           loadState={snap.loadState}
           onFilterChange={(filter) => {
@@ -120,6 +122,9 @@ export function App({
           }}
           onPartitionChange={(partition) => {
             void controller.setPartitionFilter(partition);
+          }}
+          onProjectChange={(project) => {
+            void controller.setProjectFilter(project);
           }}
           onSelect={(assetId) => controller.selectAsset(assetId)}
         />

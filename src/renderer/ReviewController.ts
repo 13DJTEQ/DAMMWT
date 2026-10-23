@@ -1,9 +1,13 @@
 /**
  * Gallery V1 review controller — shared by App and verify scripts.
  * Owns queue/stats load + love/keep/reject decisions with notes.
- * Partition filter (Originals / Tattoos / Generated) is client-side on the
- * full queue so lineage jumps can resolve parent Source-of-Truth rows.
+ * Partition / project filters are client-side on the full queue so lineage
+ * jumps can resolve parent Source-of-Truth rows.
  */
+import {
+  collectProjectSlugs,
+  resolveProjectSlug,
+} from '../media/projectSlug';
 import {
   getDamApi,
   type ApprovalHistoryRow,
@@ -17,6 +21,8 @@ import {
 
 export type QueueFilter = ReviewStatus | 'all';
 export type PartitionFilter = MediaPartition | 'all';
+/** `all` = no project constraint; otherwise match resolveProjectSlug. */
+export type ProjectFilter = 'all' | string;
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface ReviewControllerSnapshot {
@@ -24,6 +30,9 @@ export interface ReviewControllerSnapshot {
   error: string | null;
   filter: QueueFilter;
   partitionFilter: PartitionFilter;
+  projectFilter: ProjectFilter;
+  /** Known project slugs from catalog (path projects/<slug>/ or projectTag). */
+  availableProjects: string[];
   queue: ReviewQueueRow[];
   /** Unfiltered catalog for lineage lookups (parent Source of Truth). */
   catalog: ReviewQueueRow[];
@@ -53,6 +62,7 @@ export class ReviewController {
   private error: string | null = null;
   private filter: QueueFilter = 'pending';
   private partitionFilter: PartitionFilter = 'all';
+  private projectFilter: ProjectFilter = 'all';
   private catalog: ReviewQueueRow[] = [];
   private queue: ReviewQueueRow[] = [];
   private stats: QueueStats | null = null;
@@ -89,6 +99,8 @@ export class ReviewController {
       error: this.error,
       filter: this.filter,
       partitionFilter: this.partitionFilter,
+      projectFilter: this.projectFilter,
+      availableProjects: collectProjectSlugs(this.catalog),
       queue: this.queue,
       catalog: this.catalog,
       stats: this.stats,
@@ -108,6 +120,11 @@ export class ReviewController {
 
   setPartitionFilter(partitionFilter: PartitionFilter): Promise<void> {
     this.partitionFilter = partitionFilter;
+    return this.refresh();
+  }
+
+  setProjectFilter(projectFilter: ProjectFilter): Promise<void> {
+    this.projectFilter = projectFilter;
     return this.refresh();
   }
 
@@ -134,6 +151,7 @@ export class ReviewController {
   async revealAsset(assetId: string): Promise<void> {
     this.filter = 'all';
     this.partitionFilter = 'all';
+    this.projectFilter = 'all';
     await this.refresh();
     this.selectAsset(assetId);
   }
@@ -260,7 +278,10 @@ export class ReviewController {
       const partitionOk =
         this.partitionFilter === 'all' ||
         row.partition === this.partitionFilter;
-      return statusOk && partitionOk;
+      const projectOk =
+        this.projectFilter === 'all' ||
+        resolveProjectSlug(row) === this.projectFilter;
+      return statusOk && partitionOk && projectOk;
     });
   }
 

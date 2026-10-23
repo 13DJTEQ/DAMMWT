@@ -66,6 +66,7 @@ export function manifestRowToGalleryAsset(
     localPath,
     cloudUrl: row.cloudUrl?.trim() ? row.cloudUrl.trim() : null,
     projectTag: row.projectTag ?? row.project ?? row.batch ?? row.partition,
+    project: row.project ?? null,
     tags: row.tags ?? [row.partition],
     description: row.description ?? null,
     notes: null,

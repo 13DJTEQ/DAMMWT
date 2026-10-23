@@ -687,3 +687,28 @@ textarea {
     animation: none;
   }
 }
+
+
+.filter-row--project {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-select-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.filter-select {
+  appearance: none;
+  background: rgba(10, 25, 47, 0.9);
+  color: #f4ede1;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 4px;
+  padding: 0.35rem 1.75rem 0.35rem 0.65rem;
+  font: inherit;
+  font-size: 0.85rem;
+  max-width: 14rem;
+}
