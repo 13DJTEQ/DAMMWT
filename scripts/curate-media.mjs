@@ -53,6 +53,8 @@ const webMedia = join(root, 'web', 'public', 'media');
  * @property {Partition} partition
  * @property {string} previewPath  relative under media/ (e.g. tattoos/flash/01-….jpg)
  * @property {string} previewUrl   web URL (/media/…) — Electron uses file:// from assets/media
+ * @property {string} localPath    repo-relative path (assets/media/…) for Reveal / copy-path
+ * @property {string | null} cloudUrl  optional Notion / Drive / Supabase / CDN URL (null when unknown)
  * @property {string} sourcePath   relative to MWTDAM tattoo root
  * @property {string | null} parentSourceId  canonical lineage → parent assetId (null = SoT root)
  * @property {string | null} [parentId]      alias of parentSourceId (compat)
@@ -63,7 +65,7 @@ const webMedia = join(root, 'web', 'public', 'media');
  * @property {string | null} description
  */
 
-/** @type {Array<{ src: string, dest: string, partition: Partition, title?: string, derivedFrom?: string | null, batch?: string | null, tags?: string[], description?: string | null, report?: string | null }>} */
+/** @type {Array<{ src: string, dest: string, partition: Partition, title?: string, derivedFrom?: string | null, batch?: string | null, tags?: string[], description?: string | null, report?: string | null, cloudUrl?: string | null }>} */
 const PLAN = [
   // —— Originals / Source of Truth ——
   {
@@ -678,6 +680,10 @@ function main() {
       partition: item.partition,
       previewPath: item.dest,
       previewUrl: `/media/${item.dest}`,
+      // Repo-relative — Electron seed resolves to absolute under assets/media
+      localPath: `assets/media/${item.dest}`,
+      // Per-asset Notion/Drive URLs are not in the MWTDAM tattoo plan yet
+      cloudUrl: item.cloudUrl ?? null,
       sourcePath: item.src,
       parentSourceId,
       // Compat aliases — prefer parentSourceId when reading
@@ -709,6 +715,13 @@ function main() {
     previewUrlScheme: {
       web: '/media/<previewPath>',
       electron: 'file://<repo>/assets/media/<previewPath>',
+    },
+    fileLinkSchema: {
+      localPath:
+        'Repo-relative assets/media/<previewPath> (Electron seed stores absolute). Use for Reveal in Finder / Open file / copy path.',
+      cloudUrl:
+        'Optional http(s) Notion / Drive / Supabase / CDN URL. Null when no known cloud link for the plate.',
+      previewUrl: 'Display-only preview (web /media/… or Electron file://).',
     },
     lineageSchema: {
       parentSourceId:

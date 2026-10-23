@@ -41,7 +41,13 @@ export {
   type IpcChannel,
   type IpcMainLike,
   type InvokeFn,
+  type ShellHandlerOptions,
 } from './ipc/handlers';
+export {
+  resolveUnderAllowedRoots,
+  assertSafeExternalUrl,
+  type ShellActionResult,
+} from './ipc/shellSafe';
 export {
   ArchiveScheduler,
   type ArchiveJobResult,

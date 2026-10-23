@@ -27,6 +27,10 @@ export interface IngestAssetInput {
   sourceBackend: SourceBackendType;
   sourceIdentifier: string;
   previewUrl: string;
+  /** Absolute or repo-relative filesystem path for Reveal / Open file. */
+  localPath?: string | null;
+  /** Optional Notion / Drive / Supabase / CDN URL for Open cloud. */
+  cloudUrl?: string | null;
   projectTag?: string;
   tags?: string[];
   designatedReviewer?: string;
@@ -53,6 +57,8 @@ export interface ReviewQueueRow {
   sourceBackend: SourceBackendType;
   sourceIdentifier: string;
   previewUrl: string;
+  localPath: string | null;
+  cloudUrl: string | null;
   projectTag: string | null;
   tags: string | null;
   designatedReviewer: string | null;
@@ -120,7 +126,7 @@ export class DatabaseManager {
   }
 
   /**
-   * Additive columns for tattoo-design SoT / lineage (safe on existing DBs).
+   * Additive columns for tattoo-design SoT / lineage / file links (safe on existing DBs).
    */
   private ensureMediaLineageColumns(): void {
     const cols = this.db
@@ -135,6 +141,12 @@ export class DatabaseManager {
     }
     if (!names.has('title')) {
       this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN title TEXT`);
+    }
+    if (!names.has('localPath')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN localPath TEXT`);
+    }
+    if (!names.has('cloudUrl')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN cloudUrl TEXT`);
     }
     this.db.exec(
       `CREATE INDEX IF NOT EXISTS idx_review_queue_partition ON ReviewQueue(partition)`
@@ -265,11 +277,11 @@ export class DatabaseManager {
         .prepare(
           `INSERT INTO ReviewQueue (
             assetId, status, version, sourceBackend, sourceIdentifier,
-            previewUrl, projectTag, tags, designatedReviewer, description,
+            previewUrl, localPath, cloudUrl, projectTag, tags, designatedReviewer, description,
             partition, parentSourceId, title
           ) VALUES (
             @assetId, 'pending', 1, @sourceBackend, @sourceIdentifier,
-            @previewUrl, @projectTag, @tags, @designatedReviewer, @description,
+            @previewUrl, @localPath, @cloudUrl, @projectTag, @tags, @designatedReviewer, @description,
             @partition, @parentSourceId, @title
           )`
         )
@@ -278,6 +290,8 @@ export class DatabaseManager {
           sourceBackend: input.sourceBackend,
           sourceIdentifier: input.sourceIdentifier,
           previewUrl: input.previewUrl,
+          localPath: input.localPath ?? null,
+          cloudUrl: input.cloudUrl ?? null,
           projectTag: input.projectTag ?? null,
           tags: input.tags ? JSON.stringify(input.tags) : null,
           designatedReviewer: input.designatedReviewer ?? null,
@@ -495,6 +509,7 @@ export class DatabaseManager {
 
   /**
    * Idempotent ingest: skip when assetId already exists.
+   * Backfills localPath / cloudUrl when the row is missing those links.
    * @returns the row and whether it was newly inserted
    */
   ingestAssetIfAbsent(
@@ -502,6 +517,29 @@ export class DatabaseManager {
   ): { row: ReviewQueueRow; inserted: boolean } {
     const existing = this.getByAssetId(input.assetId);
     if (existing) {
+      const needsLocal =
+        input.localPath &&
+        (!existing.localPath || existing.localPath !== input.localPath);
+      const needsCloud =
+        input.cloudUrl !== undefined &&
+        input.cloudUrl !== null &&
+        existing.cloudUrl !== input.cloudUrl;
+      if (needsLocal || needsCloud) {
+        this.db
+          .prepare(
+            `UPDATE ReviewQueue
+             SET localPath = COALESCE(@localPath, localPath),
+                 cloudUrl = COALESCE(@cloudUrl, cloudUrl),
+                 updatedAt = datetime('now')
+             WHERE assetId = @assetId`
+          )
+          .run({
+            assetId: input.assetId,
+            localPath: input.localPath ?? null,
+            cloudUrl: input.cloudUrl ?? null,
+          });
+        return { row: this.getByAssetId(input.assetId)!, inserted: false };
+      }
       return { row: existing, inserted: false };
     }
     return { row: this.ingestAsset(input), inserted: true };

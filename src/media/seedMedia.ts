@@ -17,6 +17,10 @@ export interface ManifestAsset {
   partition: MediaPartition;
   previewPath: string;
   previewUrl?: string;
+  /** Repo-relative or absolute path (e.g. assets/media/tattoos/…). */
+  localPath?: string | null;
+  /** Optional Notion / Drive / Supabase / CDN URL. */
+  cloudUrl?: string | null;
   sourcePath?: string | null;
   /** Canonical lineage pointer (preferred). */
   parentSourceId?: string | null;
@@ -146,11 +150,19 @@ export function seedMediaFromManifest(
       tags.push('source-of-truth');
     }
 
+    // Prefer absolute disk path for Electron Reveal / Open file.
+    const localPath = isAbsolute(asset.localPath ?? '')
+      ? (asset.localPath as string)
+      : absolutePreview;
+    const cloudUrl = asset.cloudUrl?.trim() ? asset.cloudUrl.trim() : null;
+
     const result = db.ingestAssetIfAbsent({
       assetId,
       sourceBackend: 'local',
       sourceIdentifier: absolutePreview,
       previewUrl: previewFileUrl(mediaRoot, previewPath),
+      localPath,
+      cloudUrl,
       projectTag: asset.batch ?? asset.partition,
       tags,
       description: asset.description ?? undefined,

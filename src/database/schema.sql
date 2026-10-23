@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS ReviewQueue (
   ),
   sourceIdentifier TEXT NOT NULL,
   previewUrl TEXT NOT NULL,
+  -- Absolute or repo-relative path on disk (Gallery → Reveal / Open file)
+  localPath TEXT,
+  -- Optional Notion / Drive / Supabase / CDN URL (Gallery → Open cloud)
+  cloudUrl TEXT,
   projectTag TEXT,
   tags TEXT, -- JSON array
   designatedReviewer TEXT,
