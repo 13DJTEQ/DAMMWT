@@ -19,4 +19,6 @@ Canonical copies for Gallery / Design Kit chrome. Sourced read-only from the MWT
 
 Web URLs are `/brand/<file>` (served from `web/public/brand/`). Favicon: `/brand/mwt-emblem.png`.
 
+Electron: `npm run build:renderer` copies `src/renderer/assets/brand/` → `dist/renderer/assets/brand/` for `loadFile` (paths in JSX are `./assets/brand/…`). Restart Electron after rebuild to pick up chrome changes.
+
 If assets are missing locally, copy from MWTDAM per `SOURCES.md` into both trees (keep filenames stable).

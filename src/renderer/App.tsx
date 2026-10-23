@@ -51,8 +51,38 @@ export function App({
 
   return (
     <div className="app-shell">
+      <div className="app-shell__spiral" aria-hidden="true">
+        <img
+          className="app-shell__spiral-img app-shell__spiral-img--primary"
+          src="./assets/brand/gold-spiral.png"
+          alt=""
+          draggable={false}
+        />
+        <img
+          className="app-shell__spiral-img app-shell__spiral-img--iris"
+          src="./assets/brand/fibonacci-iris.png"
+          alt=""
+          draggable={false}
+        />
+      </div>
       <header className="shell-header">
         <div className="brand-block">
+          <div className="brand-lockup">
+            <img
+              className="brand-emblem"
+              src="./assets/brand/mwt-emblem.png"
+              alt="MWT emblem"
+              width={52}
+              height={52}
+              draggable={false}
+            />
+            <img
+              className="brand-wordmark"
+              src="./assets/brand/media-wave-horizontal-lockup.jpg"
+              alt="Media Wave Technology"
+              draggable={false}
+            />
+          </div>
           <p className="brand-name">MWT DAM</p>
           <h1 className="shell-title">Gallery</h1>
           <p className="shell-lede">
