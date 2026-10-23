@@ -9,6 +9,7 @@ const {
   cpSync,
   existsSync,
   readdirSync,
+  rmSync,
 } = require('fs');
 const { join } = require('path');
 
@@ -45,6 +46,7 @@ async function main() {
   );
 
   if (existsSync(brandSrc)) {
+    rmSync(brandOut, { recursive: true, force: true });
     mkdirSync(brandOut, { recursive: true });
     cpSync(brandSrc, brandOut, { recursive: true });
     const count = readdirSync(brandOut).length;
