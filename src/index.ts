@@ -22,7 +22,16 @@ export {
   type QueueStats,
   type ReviewStatus,
   type ApprovalDecision,
+  type MediaPartition,
 } from './database/DatabaseManager';
+export {
+  seedMediaFromManifest,
+  resolveMediaRoot,
+  loadMediaManifest,
+  type MediaManifest,
+  type ManifestAsset,
+  type SeedMediaResult,
+} from './media/seedMedia';
 export {
   IPC_CHANNELS,
   createDamApi,

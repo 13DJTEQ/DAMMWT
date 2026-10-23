@@ -2,9 +2,11 @@ import type { ApprovalHistoryRow, ReviewQueueRow } from '../damApi';
 
 interface VersionHistoryProps {
   asset: ReviewQueueRow | null;
+  parentAsset: ReviewQueueRow | null;
   history: ApprovalHistoryRow[];
   busy: boolean;
   onResubmit: (newSourceIdentifier: string, previewUrl: string) => void;
+  onRevealParent?: (assetId: string) => void;
 }
 
 function decisionLabel(decision: string): string {
@@ -34,9 +36,11 @@ function formatWhen(iso: string): string {
 
 export function VersionHistory({
   asset,
+  parentAsset,
   history,
   busy,
   onResubmit,
+  onRevealParent,
 }: VersionHistoryProps): JSX.Element {
   if (!asset) {
     return (
@@ -59,6 +63,31 @@ export function VersionHistory({
         <h2>Version history</h2>
         <p className="approval-sub">Resubmit chain for {asset.assetId}</p>
       </header>
+
+      {asset.parentSourceId ? (
+        <div className="lineage-panel">
+          <p className="lineage-panel__label">Source lineage</p>
+          <p className="lineage-panel__body">
+            {parentAsset ? (
+              <>
+                Linked to{' '}
+                <button
+                  type="button"
+                  className="lineage-link"
+                  onClick={() => onRevealParent?.(asset.parentSourceId!)}
+                >
+                  {parentAsset.title?.trim() || parentAsset.assetId}
+                </button>{' '}
+                (Original / Source of Truth)
+              </>
+            ) : (
+              <>
+                Parent ref <code>{asset.parentSourceId}</code>
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
 
       {history.length === 0 ? (
         <p className="panel-state panel-state--empty">No history rows yet.</p>

@@ -1,15 +1,25 @@
 import { useEffect, useRef } from 'react';
-import type { ReviewQueueRow } from '../damApi';
+import type { MediaPartition, ReviewQueueRow } from '../damApi';
 
 export type GalleryDecision = 'love' | 'keep' | 'reject' | 'changesRequested';
 
 interface ApprovalCardProps {
   asset: ReviewQueueRow | null;
+  parentAsset: ReviewQueueRow | null;
   busy: boolean;
   reviewedBy: string;
   notes: string;
   onNotesChange: (notes: string) => void;
   onDecide: (decision: GalleryDecision, notes?: string) => void;
+  onRevealParent?: (assetId: string) => void;
+}
+
+function partitionLabel(partition: MediaPartition | null): string | null {
+  if (!partition) return null;
+  if (partition === 'originals') return 'Original (Source of Truth)';
+  if (partition === 'tattoos') return 'Tattoo';
+  if (partition === 'generated') return 'Generated';
+  return partition;
 }
 
 function parseTags(raw: string | null): string[] {
@@ -24,11 +34,13 @@ function parseTags(raw: string | null): string[] {
 
 export function ApprovalCard({
   asset,
+  parentAsset,
   busy,
   reviewedBy,
   notes,
   onNotesChange,
   onDecide,
+  onRevealParent,
 }: ApprovalCardProps): JSX.Element {
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -84,14 +96,20 @@ export function ApprovalCard({
   const tags = parseTags(asset.tags);
   const canDecide =
     !busy && (asset.status === 'pending' || asset.status === 'changesRequested');
+  const displayTitle = asset.title?.trim() || asset.assetId;
+  const partition = partitionLabel(asset.partition);
 
   return (
     <section className="approval-panel" aria-label={`Review ${asset.assetId}`}>
       <header className="panel-header">
-        <h2>{asset.assetId}</h2>
+        <h2>{displayTitle}</h2>
         <p className="approval-sub">
+          {partition ? `${partition} · ` : null}
           Version {asset.version} · {asset.sourceBackend} · reviewer {reviewedBy}
         </p>
+        {asset.title && asset.title !== asset.assetId ? (
+          <p className="approval-sub approval-sub--id">{asset.assetId}</p>
+        ) : null}
       </header>
 
       <div className="preview-stage">
@@ -106,6 +124,31 @@ export function ApprovalCard({
         )}
       </div>
 
+      {asset.parentSourceId ? (
+        <div className="lineage-panel" aria-label="Generation lineage">
+          <p className="lineage-panel__label">Generation history</p>
+          <p className="lineage-panel__body">
+            Derived from Source of Truth{' '}
+            {parentAsset ? (
+              <button
+                type="button"
+                className="lineage-link"
+                onClick={() => onRevealParent?.(asset.parentSourceId!)}
+              >
+                {parentAsset.title?.trim() || parentAsset.assetId}
+              </button>
+            ) : (
+              <code>{asset.parentSourceId}</code>
+            )}
+          </p>
+        </div>
+      ) : null}
+      {asset.partition === 'originals' ? (
+        <p className="lineage-panel lineage-panel--sot">
+          Source of Truth — originals partition (seed / reference).
+        </p>
+      ) : null}
+
       <dl className="meta-grid">
         <div>
           <dt>Source</dt>
@@ -115,6 +158,30 @@ export function ApprovalCard({
           <dt>Status</dt>
           <dd>{asset.status}</dd>
         </div>
+        {asset.partition ? (
+          <div>
+            <dt>Partition</dt>
+            <dd>{partition}</dd>
+          </div>
+        ) : null}
+        {asset.parentSourceId ? (
+          <div>
+            <dt>Parent ref</dt>
+            <dd>
+              {onRevealParent ? (
+                <button
+                  type="button"
+                  className="lineage-link"
+                  onClick={() => onRevealParent(asset.parentSourceId!)}
+                >
+                  {asset.parentSourceId}
+                </button>
+              ) : (
+                asset.parentSourceId
+              )}
+            </dd>
+          </div>
+        ) : null}
         {asset.projectTag ? (
           <div>
             <dt>Project</dt>

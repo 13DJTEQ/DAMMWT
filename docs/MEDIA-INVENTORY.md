@@ -1,0 +1,116 @@
+# Media inventory — Tattoo Designs + Source of Truth
+
+Curated subset of MWTDAM tattoo-design graphics staged into DAMMWT so **web** and **Electron** can load real previews (not picsum placeholders).
+
+## Media roots
+
+| Role | Path |
+|------|------|
+| **Canonical repo store** | `assets/media/` |
+| **Vite / web static** | `web/public/media/` → URLs under `/media/…` |
+| **Manifest** | `assets/media/manifest.json` (web also accepts `/media/MANIFEST.json`; on case-insensitive volumes these are the same file) |
+
+### Layout
+
+```
+assets/media/
+  originals/          # Source of Truth — seeds & reference art
+    base/             # dragon / body-canvas masters
+    esoteric/         # compass, seals, filigree refs
+    scorpions/        # Durango species photos
+  tattoos/            # Placement & flash designs
+    flash/
+    arm-leg/
+    arm-shoulder/
+    body-maps/        # (+ arms/, legs/)
+    scorpions/
+  generated/          # Optional non-tattoo gens (empty in default curated set)
+  manifest.json
+  MANIFEST.json
+```
+
+`web/public/media/` mirrors the same tree for the browser gallery.
+
+## Counts (default curated plan)
+
+| Partition | Count | Notes |
+|-----------|------:|-------|
+| **originals** | 17 | SoT seeds / refs (`parentSourceId` = null) |
+| **tattoos** | 43 | Flash, limb placements, body-maps, scorpion styles |
+| **generated** | 0 | Reserved; not in default plan |
+| **Total** | **60** | ~21 MB binaries (git-friendly curated subset) |
+| Lineage links | 36 | Tattoos that point at a parent original or earlier gen |
+
+Exact counts are always in `manifest.json` → `counts` / `lineageLinks`.
+
+## Preview URL resolution
+
+### Web (Vite)
+
+1. Boot loads `/media/manifest.json` (fallback: `/media/MANIFEST.json`).
+2. Each row’s `previewUrl` is `/media/<previewPath>` (e.g. `/media/tattoos/flash/01-wave-dragon-irezumi.jpg`).
+3. Files are served from `web/public/media/`.
+4. `MemoryGalleryStore` / IndexedDB seed via `web/src/media/manifest.ts` → `loadManifestSeed()`.
+
+### Electron
+
+1. On empty DB (or `npm run seed:media`), `src/media/seedMedia.ts` reads `assets/media/manifest.json`.
+2. `previewUrl` is stored as `file://…/assets/media/<previewPath>`.
+3. `sourceIdentifier` is the absolute filesystem path to the same file.
+4. Resolve media root: `resolveMediaRoot()` → `assets/media` next to the repo (dev) or relative to `dist/`.
+
+## Lineage schema (siblings / generation history)
+
+| Field | Meaning |
+|-------|---------|
+| `parentSourceId` | **Canonical.** `assetId` of the immediate parent. `null` = Source-of-Truth original. |
+| `parentId` | Alias of `parentSourceId` (compat). |
+| `derivedFrom` | Alias of `parentSourceId` (compat / generation-report wording). |
+| `batch` | Generation batch tag when known (`flash`, `arm-leg`, `scorpions-2026-10-15`, …). |
+| `report` | Optional pointer into MWTDAM generation-reports / batch folder. |
+
+**Walk to SoT:** follow `parentSourceId` until `null`.
+
+**Siblings:** all assets that share the same `parentSourceId` (same parent seed / alternate takes in a batch).
+
+Web UI: `buildLineageChain()` in `web/src/media/manifest.ts` + `LineageTrail` on the decision panel.
+
+## Refresh from MWTDAM
+
+Source of truth on disk (iCloud default):
+
+```text
+…/MediaWaveTech/MWTDAM/tattoo-designs/tattoo/
+  references/     → staged as assets/media/originals/
+  generated/      → staged as assets/media/tattoos/…
+```
+
+```bash
+# Default path (CloudDocs MWTDAM tattoo/)
+npm run curate:media
+
+# Or point at an explicit tattoo root
+MWTDAM_TATTOO_ROOT=/path/to/MWTDAM/tattoo-designs/tattoo npm run curate:media
+```
+
+The script:
+
+1. Copies the curated `PLAN` subset into `assets/media/` and `web/public/media/`.
+2. Rewrites `manifest.json` + `MANIFEST.json` in both places.
+3. Skips missing sources (listed under `skipped` in the manifest).
+
+Then re-seed Electron if needed:
+
+```bash
+npm run seed:media
+```
+
+### Full vault vs curated subset
+
+The full MWTDAM tattoo tree is large. This repo keeps a **lean curated set** (~60 images) so clones stay usable. Expand `PLAN` in `scripts/curate-media.mjs` to pull more plates; do not commit the entire vault unless you switch to LFS / external sync.
+
+Related MWTDAM docs (outside this repo): `docs/MWTDAM-V1/Asset inventory.md`, `Gallery product.md`, `originals-vs-generated.md`.
+
+## Brand (separate)
+
+Brand / Design Kit marks live under `assets/brand/` (and mirrors), not in this tattoo inventory. See `docs/BRAND-ASSETS.md`.

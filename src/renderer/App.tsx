@@ -112,10 +112,14 @@ export function App({
         <ReviewQueue
           queue={snap.queue}
           filter={snap.filter}
+          partitionFilter={snap.partitionFilter}
           selectedAssetId={snap.selectedAssetId}
           loadState={snap.loadState}
           onFilterChange={(filter) => {
             void controller.setFilter(filter);
+          }}
+          onPartitionChange={(partition) => {
+            void controller.setPartitionFilter(partition);
           }}
           onSelect={(assetId) => controller.selectAsset(assetId)}
         />
@@ -123,20 +127,28 @@ export function App({
         <div className="workspace-detail">
           <ApprovalCard
             asset={snap.selected}
+            parentAsset={snap.parentAsset}
             busy={snap.busy}
             reviewedBy={reviewedBy}
             notes={snap.notesDraft}
             onNotesChange={(notes) => controller.setNotesDraft(notes)}
             onDecide={decide}
+            onRevealParent={(assetId) => {
+              void controller.revealAsset(assetId).catch(() => undefined);
+            }}
           />
           <VersionHistory
             asset={snap.selected}
+            parentAsset={snap.parentAsset}
             history={snap.history}
             busy={snap.busy}
             onResubmit={(source, preview) => {
               void controller
                 .resubmitSelected(source, preview)
                 .catch(() => undefined);
+            }}
+            onRevealParent={(assetId) => {
+              void controller.revealAsset(assetId).catch(() => undefined);
             }}
           />
         </div>

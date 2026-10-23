@@ -20,10 +20,17 @@ CREATE TABLE IF NOT EXISTS ReviewQueue (
   tags TEXT, -- JSON array
   designatedReviewer TEXT,
   description TEXT,
+  -- Media partitions: originals (source of truth) | tattoos | generated
+  partition TEXT,
+  parentSourceId TEXT,
+  title TEXT,
   createdAt TEXT NOT NULL DEFAULT (datetime('now')),
   updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
   archiveScheduledAt TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_review_queue_partition ON ReviewQueue(partition);
+CREATE INDEX IF NOT EXISTS idx_review_queue_parent ON ReviewQueue(parentSourceId);
 
 CREATE INDEX IF NOT EXISTS idx_review_queue_status ON ReviewQueue(status);
 CREATE INDEX IF NOT EXISTS idx_review_queue_reviewer ON ReviewQueue(designatedReviewer);

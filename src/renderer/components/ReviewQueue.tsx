@@ -1,12 +1,14 @@
-import type { QueueFilter } from '../ReviewController';
-import type { ReviewQueueRow, ReviewStatus } from '../damApi';
+import type { PartitionFilter, QueueFilter } from '../ReviewController';
+import type { MediaPartition, ReviewQueueRow, ReviewStatus } from '../damApi';
 
 interface ReviewQueueProps {
   queue: ReviewQueueRow[];
   filter: QueueFilter;
+  partitionFilter: PartitionFilter;
   selectedAssetId: string | null;
   loadState: 'idle' | 'loading' | 'ready' | 'error';
   onFilterChange: (filter: QueueFilter) => void;
+  onPartitionChange: (partition: PartitionFilter) => void;
   onSelect: (assetId: string) => void;
 }
 
@@ -17,6 +19,13 @@ const FILTERS: Array<{ value: QueueFilter; label: string }> = [
   { value: 'reject', label: 'Reject' },
   { value: 'changesRequested', label: 'Changes' },
   { value: 'all', label: 'All' },
+];
+
+const PARTITIONS: Array<{ value: PartitionFilter; label: string }> = [
+  { value: 'all', label: 'All media' },
+  { value: 'originals', label: 'Originals (Source of Truth)' },
+  { value: 'tattoos', label: 'Tattoos' },
+  { value: 'generated', label: 'Generated' },
 ];
 
 function statusLabel(status: ReviewStatus): string {
@@ -31,6 +40,20 @@ function statusLabel(status: ReviewStatus): string {
       return 'Reject';
     default:
       return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+}
+
+function partitionLabel(partition: MediaPartition | null): string | null {
+  if (!partition) return null;
+  switch (partition) {
+    case 'originals':
+      return 'Original';
+    case 'tattoos':
+      return 'Tattoo';
+    case 'generated':
+      return 'Generated';
+    default:
+      return partition;
   }
 }
 
@@ -50,15 +73,39 @@ function formatUpdated(iso: string): string {
 export function ReviewQueue({
   queue,
   filter,
+  partitionFilter,
   selectedAssetId,
   loadState,
   onFilterChange,
+  onPartitionChange,
   onSelect,
 }: ReviewQueueProps): JSX.Element {
   return (
     <section className="review-queue" aria-label="Gallery queue">
       <header className="panel-header">
         <h2>Gallery</h2>
+        <div
+          className="filter-row"
+          role="tablist"
+          aria-label="Filter by media partition"
+        >
+          {PARTITIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={partitionFilter === value}
+              className={
+                partitionFilter === value
+                  ? 'filter-btn filter-btn--partition filter-btn--active'
+                  : 'filter-btn filter-btn--partition'
+              }
+              onClick={() => onPartitionChange(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="filter-row" role="tablist" aria-label="Filter by decision">
           {FILTERS.map(({ value, label }) => (
             <button
@@ -83,7 +130,8 @@ export function ReviewQueue({
 
       {loadState === 'ready' && queue.length === 0 ? (
         <p className="panel-state panel-state--empty">
-          No assets match this filter. Ingest media or switch status to see work.
+          No assets match this filter. Run <code>npm run seed:media</code> or
+          switch partition / status.
         </p>
       ) : null}
 
@@ -91,6 +139,8 @@ export function ReviewQueue({
         <ul className="gallery-queue-list">
           {queue.map((row) => {
             const selected = row.assetId === selectedAssetId;
+            const part = partitionLabel(row.partition);
+            const label = row.title?.trim() || row.assetId;
             return (
               <li key={row.assetId}>
                 <button
@@ -111,8 +161,15 @@ export function ReviewQueue({
                     )}
                   </span>
                   <span className="gallery-queue-item__body">
-                    <span className="queue-item__title">{row.assetId}</span>
+                    <span className="queue-item__title">{label}</span>
                     <span className="queue-item__meta">
+                      {part ? (
+                        <span
+                          className={`status-chip status-chip--partition-${row.partition}`}
+                        >
+                          {part}
+                        </span>
+                      ) : null}
                       <span className={`status-chip status-chip--${row.status}`}>
                         {statusLabel(row.status)}
                       </span>

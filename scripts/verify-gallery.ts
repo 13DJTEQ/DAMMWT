@@ -171,6 +171,45 @@ async function main(): Promise<void> {
       await controller.refresh();
     });
 
+    await viaIpc.ingestAsset({
+      assetId: 'orig-lineage',
+      sourceBackend: 'local',
+      sourceIdentifier: '/media/orig.jpg',
+      previewUrl: 'file:///media/orig.jpg',
+      partition: 'originals',
+      title: 'Lineage original',
+    });
+    await viaIpc.ingestAsset({
+      assetId: 'tat-lineage',
+      sourceBackend: 'local',
+      sourceIdentifier: '/media/tat.jpg',
+      previewUrl: 'file:///media/tat.jpg',
+      partition: 'tattoos',
+      parentSourceId: 'orig-lineage',
+      title: 'Lineage tattoo',
+    });
+    await controller.setPartitionFilter('tattoos');
+    await controller.setFilter('all');
+    controller.selectAsset('tat-lineage');
+    snap = controller.getSnapshot();
+    if (snap.queue.length < 1 || !snap.parentAsset) {
+      throw new Error(
+        `Expected tattoo partition + parent lineage, got queue=${snap.queue.length} parent=${snap.parentAsset?.assetId}`
+      );
+    }
+    if (snap.parentAsset.assetId !== 'orig-lineage') {
+      throw new Error(`Parent mismatch: ${snap.parentAsset.assetId}`);
+    }
+    await controller.revealAsset('orig-lineage');
+    snap = controller.getSnapshot();
+    if (snap.selectedAssetId !== 'orig-lineage' || snap.partitionFilter !== 'all') {
+      throw new Error('revealAsset should clear filters and select parent');
+    }
+
+    await act(async () => {
+      await controller.refresh();
+    });
+
     const text = collectText(renderer!.toJSON());
     if (!text.includes('MWT DAM')) {
       throw new Error('App render missing brand name MWT DAM');
@@ -180,6 +219,9 @@ async function main(): Promise<void> {
     }
     if (!text.includes('Love') || !text.includes('Keep') || !text.includes('Reject')) {
       throw new Error('App render missing Gallery decision chrome');
+    }
+    if (!text.includes('Source of Truth')) {
+      throw new Error('App render missing Originals / Source of Truth partition chrome');
     }
 
     console.log(

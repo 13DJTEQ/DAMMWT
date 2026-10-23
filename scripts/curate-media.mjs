@@ -2,15 +2,24 @@
 /**
  * Curate a lean tattoo + originals subset from MWTDAM into DAMMWT.
  *
- * Copies into:
- *   assets/media/{originals,tattoos}/
- *   web/public/media/{originals,tattoos}/   (Vite-served previews)
+ * Media root (canonical): assets/media/
+ *   assets/media/originals/   — Source of Truth seeds / refs
+ *   assets/media/tattoos/     — flash, body-maps, arm-*, scorpions, …
+ *   assets/media/generated/   — optional non-tattoo gens (empty in default plan)
  *
- * Writes:
- *   assets/media/manifest.json
- *   web/public/media/manifest.json
+ * Vite mirror (web previews at /media/…):
+ *   web/public/media/{originals,tattoos,generated}/
  *
- * Override source with MWTDAM_TATTOO_ROOT=/path/to/tattoo
+ * Manifests (identical content):
+ *   assets/media/manifest.json + MANIFEST.json
+ *   web/public/media/manifest.json + MANIFEST.json
+ *
+ * Refresh:
+ *   npm run curate:media
+ *   MWTDAM_TATTOO_ROOT=/path/to/tattoo npm run curate:media
+ *
+ * Default source (iCloud):
+ *   …/MWTDAM/tattoo-designs/tattoo/{references,generated}
  */
 import {
   copyFileSync,
@@ -43,10 +52,11 @@ const webMedia = join(root, 'web', 'public', 'media');
  * @property {string} title
  * @property {Partition} partition
  * @property {string} previewPath  relative under media/ (e.g. tattoos/flash/01-….jpg)
- * @property {string} previewUrl   web URL (/media/…)
+ * @property {string} previewUrl   web URL (/media/…) — Electron uses file:// from assets/media
  * @property {string} sourcePath   relative to MWTDAM tattoo root
- * @property {string | null} [derivedFrom]
- * @property {string | null} [parentId]
+ * @property {string | null} parentSourceId  canonical lineage → parent assetId (null = SoT root)
+ * @property {string | null} [parentId]      alias of parentSourceId (compat)
+ * @property {string | null} [derivedFrom]   alias of parentSourceId (compat / reports)
  * @property {string | null} [batch]
  * @property {string | null} [report]
  * @property {string[]} tags
@@ -658,6 +668,8 @@ function main() {
     copyFileSync(from, webDest);
     copied += 1;
 
+    const parentSourceId = item.derivedFrom ?? null;
+
     /** @type {ManifestAsset} */
     const record = {
       id,
@@ -667,8 +679,10 @@ function main() {
       previewPath: item.dest,
       previewUrl: `/media/${item.dest}`,
       sourcePath: item.src,
-      derivedFrom: item.derivedFrom ?? null,
-      parentId: item.derivedFrom ?? null,
+      parentSourceId,
+      // Compat aliases — prefer parentSourceId when reading
+      parentId: parentSourceId,
+      derivedFrom: parentSourceId,
       batch: item.batch ?? null,
       report: item.report ?? null,
       tags: item.tags ?? [],
@@ -683,13 +697,27 @@ function main() {
     generated: assets.filter((a) => a.partition === 'generated').length,
   };
 
-  const withLineage = assets.filter((a) => a.derivedFrom).length;
+  const withLineage = assets.filter((a) => a.parentSourceId).length;
 
   const manifest = {
     version: 1,
     generatedAt: new Date().toISOString(),
     sourceRootHint:
       'MWTDAM/tattoo-designs/tattoo (override with MWTDAM_TATTOO_ROOT)',
+    mediaRoot: 'assets/media',
+    webPublicRoot: 'web/public/media',
+    previewUrlScheme: {
+      web: '/media/<previewPath>',
+      electron: 'file://<repo>/assets/media/<previewPath>',
+    },
+    lineageSchema: {
+      parentSourceId:
+        'assetId of the immediate parent in generation history; null for Source-of-Truth originals',
+      siblings:
+        'assets that share the same parentSourceId (same generation batch / alternate takes)',
+      walkToSot: 'follow parentSourceId until null to reach the master original',
+      aliases: ['parentId', 'derivedFrom'],
+    },
     counts,
     lineageLinks: withLineage,
     skipped,
@@ -697,8 +725,11 @@ function main() {
   };
 
   const manifestJson = `${JSON.stringify(manifest, null, 2)}\n`;
-  writeFileSync(join(assetsMedia, 'manifest.json'), manifestJson);
-  writeFileSync(join(webMedia, 'manifest.json'), manifestJson);
+  for (const dir of [assetsMedia, webMedia]) {
+    // Prefer lowercase; web fetch also tries MANIFEST.json (same path on
+    // case-insensitive volumes such as default macOS APFS).
+    writeFileSync(join(dir, 'manifest.json'), manifestJson);
+  }
 
   console.log(
     `Curated ${copied} files → assets/media + web/public/media (originals=${counts.originals}, tattoos=${counts.tattoos}, lineage=${withLineage}, skipped=${skipped.length})`,

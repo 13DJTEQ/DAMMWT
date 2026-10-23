@@ -1,11 +1,14 @@
 /**
  * Gallery V1 review controller — shared by App and verify scripts.
  * Owns queue/stats load + love/keep/reject decisions with notes.
+ * Partition filter (Originals / Tattoos / Generated) is client-side on the
+ * full queue so lineage jumps can resolve parent Source-of-Truth rows.
  */
 import {
   getDamApi,
   type ApprovalHistoryRow,
   type DamApi,
+  type MediaPartition,
   type QueueStats,
   type ReviewQueueRow,
   type ReviewStatus,
@@ -13,16 +16,21 @@ import {
 } from './damApi';
 
 export type QueueFilter = ReviewStatus | 'all';
+export type PartitionFilter = MediaPartition | 'all';
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface ReviewControllerSnapshot {
   loadState: LoadState;
   error: string | null;
   filter: QueueFilter;
+  partitionFilter: PartitionFilter;
   queue: ReviewQueueRow[];
+  /** Unfiltered catalog for lineage lookups (parent Source of Truth). */
+  catalog: ReviewQueueRow[];
   stats: QueueStats | null;
   selectedAssetId: string | null;
   selected: ReviewQueueRow | null;
+  parentAsset: ReviewQueueRow | null;
   history: ApprovalHistoryRow[];
   busy: boolean;
   notesDraft: string;
@@ -44,6 +52,8 @@ export class ReviewController {
   private loadState: LoadState = 'idle';
   private error: string | null = null;
   private filter: QueueFilter = 'pending';
+  private partitionFilter: PartitionFilter = 'all';
+  private catalog: ReviewQueueRow[] = [];
   private queue: ReviewQueueRow[] = [];
   private stats: QueueStats | null = null;
   private selectedAssetId: string | null = null;
@@ -66,15 +76,25 @@ export class ReviewController {
 
   getSnapshot(): ReviewControllerSnapshot {
     const selected =
-      this.queue.find((row) => row.assetId === this.selectedAssetId) ?? null;
+      this.catalog.find((row) => row.assetId === this.selectedAssetId) ??
+      this.queue.find((row) => row.assetId === this.selectedAssetId) ??
+      null;
+    const parentAsset =
+      selected?.parentSourceId != null
+        ? this.catalog.find((row) => row.assetId === selected.parentSourceId) ??
+          null
+        : null;
     return {
       loadState: this.loadState,
       error: this.error,
       filter: this.filter,
+      partitionFilter: this.partitionFilter,
       queue: this.queue,
+      catalog: this.catalog,
       stats: this.stats,
       selectedAssetId: this.selectedAssetId,
       selected,
+      parentAsset,
       history: this.history,
       busy: this.busy,
       notesDraft: this.notesDraft,
@@ -83,6 +103,11 @@ export class ReviewController {
 
   setFilter(filter: QueueFilter): Promise<void> {
     this.filter = filter;
+    return this.refresh();
+  }
+
+  setPartitionFilter(partitionFilter: PartitionFilter): Promise<void> {
+    this.partitionFilter = partitionFilter;
     return this.refresh();
   }
 
@@ -103,29 +128,46 @@ export class ReviewController {
     }
   }
 
+  /**
+   * Jump to a lineage parent (Source of Truth): clear filters and select.
+   */
+  async revealAsset(assetId: string): Promise<void> {
+    this.filter = 'all';
+    this.partitionFilter = 'all';
+    await this.refresh();
+    this.selectAsset(assetId);
+  }
+
   async refresh(): Promise<void> {
     this.loadState = 'loading';
     this.error = null;
     this.emit();
 
     try {
-      const status = this.filter === 'all' ? undefined : this.filter;
-      const [queue, stats] = await Promise.all([
-        this.api.getReviewQueue(status),
+      const [catalog, stats] = await Promise.all([
+        this.api.getReviewQueue(),
         this.api.getQueueStats(),
       ]);
-      this.queue = queue;
+      this.catalog = catalog;
       this.stats = stats;
+      this.queue = this.applyFilters(catalog);
 
       if (
         this.selectedAssetId &&
-        !queue.some((row) => row.assetId === this.selectedAssetId)
+        !catalog.some((row) => row.assetId === this.selectedAssetId)
       ) {
-        this.selectedAssetId = queue[0]?.assetId ?? null;
+        this.selectedAssetId = this.queue[0]?.assetId ?? null;
         this.notesDraft = '';
-      } else if (!this.selectedAssetId && queue.length > 0) {
-        this.selectedAssetId = queue[0].assetId;
+      } else if (!this.selectedAssetId && this.queue.length > 0) {
+        this.selectedAssetId = this.queue[0].assetId;
         this.notesDraft = '';
+      } else if (
+        this.selectedAssetId &&
+        !this.queue.some((row) => row.assetId === this.selectedAssetId) &&
+        this.queue.length > 0
+      ) {
+        /* Keep selection if it exists in catalog but is filtered out of list;
+           only auto-pick when nothing selected. */
       }
 
       if (this.selectedAssetId) {
@@ -210,6 +252,16 @@ export class ReviewController {
       this.busy = false;
       this.emit();
     }
+  }
+
+  private applyFilters(rows: ReviewQueueRow[]): ReviewQueueRow[] {
+    return rows.filter((row) => {
+      const statusOk = this.filter === 'all' || row.status === this.filter;
+      const partitionOk =
+        this.partitionFilter === 'all' ||
+        row.partition === this.partitionFilter;
+      return statusOk && partitionOk;
+    });
   }
 
   private async loadHistory(assetId: string): Promise<void> {

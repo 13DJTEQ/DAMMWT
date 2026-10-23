@@ -13,6 +13,9 @@ export type ReviewStatus =
 
 export type ApprovalDecision = ReviewStatus;
 
+/** Tattoo-design media partition (manifest originals | tattoos | generated). */
+export type MediaPartition = 'originals' | 'tattoos' | 'generated';
+
 /** Positive gallery decisions that schedule 30-day archive. */
 export const ARCHIVE_ON_DECISIONS: ReadonlySet<ApprovalDecision> = new Set([
   'love',
@@ -28,6 +31,11 @@ export interface IngestAssetInput {
   tags?: string[];
   designatedReviewer?: string;
   description?: string;
+  /** originals | tattoos | generated — Source of Truth vs derived work. */
+  partition?: MediaPartition | null;
+  /** Lineage: generated/tattoo assetId of the parent original when set. */
+  parentSourceId?: string | null;
+  title?: string | null;
 }
 
 export interface SubmitApprovalInput {
@@ -49,6 +57,9 @@ export interface ReviewQueueRow {
   tags: string | null;
   designatedReviewer: string | null;
   description: string | null;
+  partition: MediaPartition | null;
+  parentSourceId: string | null;
+  title: string | null;
   createdAt: string;
   updatedAt: string;
   archiveScheduledAt: string | null;
@@ -105,6 +116,32 @@ export class DatabaseManager {
     const ddl = readFileSync(schemaPath, 'utf8');
     this.db.exec(ddl);
     this.migrateLegacyApproved();
+    this.ensureMediaLineageColumns();
+  }
+
+  /**
+   * Additive columns for tattoo-design SoT / lineage (safe on existing DBs).
+   */
+  private ensureMediaLineageColumns(): void {
+    const cols = this.db
+      .prepare(`PRAGMA table_info(ReviewQueue)`)
+      .all() as Array<{ name: string }>;
+    const names = new Set(cols.map((c) => c.name));
+    if (!names.has('partition')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN partition TEXT`);
+    }
+    if (!names.has('parentSourceId')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN parentSourceId TEXT`);
+    }
+    if (!names.has('title')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN title TEXT`);
+    }
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_review_queue_partition ON ReviewQueue(partition)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_review_queue_parent ON ReviewQueue(parentSourceId)`
+    );
   }
 
   /**
@@ -228,10 +265,12 @@ export class DatabaseManager {
         .prepare(
           `INSERT INTO ReviewQueue (
             assetId, status, version, sourceBackend, sourceIdentifier,
-            previewUrl, projectTag, tags, designatedReviewer, description
+            previewUrl, projectTag, tags, designatedReviewer, description,
+            partition, parentSourceId, title
           ) VALUES (
             @assetId, 'pending', 1, @sourceBackend, @sourceIdentifier,
-            @previewUrl, @projectTag, @tags, @designatedReviewer, @description
+            @previewUrl, @projectTag, @tags, @designatedReviewer, @description,
+            @partition, @parentSourceId, @title
           )`
         )
         .run({
@@ -243,6 +282,9 @@ export class DatabaseManager {
           tags: input.tags ? JSON.stringify(input.tags) : null,
           designatedReviewer: input.designatedReviewer ?? null,
           description: input.description ?? null,
+          partition: input.partition ?? null,
+          parentSourceId: input.parentSourceId ?? null,
+          title: input.title ?? null,
         });
 
       const reviewQueueId = Number(result.lastInsertRowid);
@@ -441,6 +483,28 @@ export class DatabaseManager {
     return this.db
       .prepare(`SELECT * FROM ReviewQueue WHERE assetId = ?`)
       .get(assetId) as ReviewQueueRow | undefined;
+  }
+
+  /** True when the review queue has no rows (first-launch seed gate). */
+  isEmpty(): boolean {
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM ReviewQueue`)
+      .get() as { count: number };
+    return row.count === 0;
+  }
+
+  /**
+   * Idempotent ingest: skip when assetId already exists.
+   * @returns the row and whether it was newly inserted
+   */
+  ingestAssetIfAbsent(
+    input: IngestAssetInput
+  ): { row: ReviewQueueRow; inserted: boolean } {
+    const existing = this.getByAssetId(input.assetId);
+    if (existing) {
+      return { row: existing, inserted: false };
+    }
+    return { row: this.ingestAsset(input), inserted: true };
   }
 
   getReviewQueueById(id: number): ReviewQueueRow | undefined {

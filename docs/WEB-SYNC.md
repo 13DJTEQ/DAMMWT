@@ -96,6 +96,17 @@ Protocol sketch:
 
 `web/src/domain/gallery.ts` mirrors `ReviewStatus` / queue row shapes from `src/database/DatabaseManager.ts` without importing Node modules (`better-sqlite3`). A future `packages/shared` extraction can re-export both sides; this branch keeps the Electron package layout intact.
 
+## Curated media (real previews)
+
+Tattoo Design graphics + Source-of-Truth originals are staged under `assets/media/` and mirrored to `web/public/media/` for Vite.
+
+| App | How previews resolve |
+|-----|----------------------|
+| **Web** | Fetch `/media/manifest.json` → each `previewUrl` is `/media/<path>` |
+| **Electron** | `npm run seed:media` (or first launch on empty DB) → `file://…/assets/media/<path>` |
+
+Refresh from MWTDAM: `npm run curate:media` (see `docs/MEDIA-INVENTORY.md` for counts, lineage schema, and sibling rules).
+
 ## Open decisions
 
 - Promote types into a real shared package vs keep mirrored files.

@@ -5,6 +5,7 @@
 import type {
   ApprovalHistoryRow,
   IngestAssetInput,
+  MediaPartition,
   QueueStats,
   ReviewQueueRow,
   ReviewStatus,
@@ -14,6 +15,7 @@ import type {
 export type {
   ApprovalHistoryRow,
   IngestAssetInput,
+  MediaPartition,
   QueueStats,
   ReviewQueueRow,
   ReviewStatus,

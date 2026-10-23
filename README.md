@@ -10,10 +10,13 @@ Digital Asset Management MVP for Media Wave Technology — **Gallery V1** (love 
 git clone https://github.com/13DJTEQ/DAMMWT.git
 cd DAMMWT
 npm ci
-npx @electron/rebuild   # if better-sqlite3 ABI fails under Electron
+npx @electron/rebuild -f -w better-sqlite3   # required when Node≠Electron ABI
+npm run seed:media      # ingest assets/media → ReviewQueue (or auto on first launch)
 npm run verify
-npm start               # build + Electron → Gallery UI
+npm start               # build + Electron → Gallery UI with tattoo originals/tattoos
 ```
+
+Curate media from MWTDAM (optional refresh): `npm run curate:media`. Preview URLs use `file://` under `assets/media/` (allowed by the renderer CSP).
 
 ## Gallery V1
 
