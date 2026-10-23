@@ -16,6 +16,9 @@ export type SubmitDecision = Exclude<GalleryDecision, 'pending'>;
 
 export type SourceBackendType = 'fal.ai' | 'local' | 'replit' | 'comfyui' | 'web';
 
+/** Curated media partitions (manifest + gallery sections). */
+export type MediaPartition = 'originals' | 'tattoos' | 'generated';
+
 /**
  * Syncable gallery record. `revision` increments on every local mutation and is
  * the primary ordering key for conflict resolution (see sync/conflict.ts).
@@ -38,6 +41,17 @@ export interface GalleryAsset {
   updatedAt: string;
   /** Client that last wrote this record (device / browser tab id). */
   lastWriterId: string;
+  /** Human title from curated manifest (optional for legacy/demo rows). */
+  title?: string | null;
+  /** Gallery section: Originals / SoT, Tattoos, or Generated. */
+  partition?: MediaPartition;
+  /**
+   * Parent asset in generation history. Trace toward Source of Truth by
+   * walking this id until null (original / seed).
+   */
+  parentSourceId?: string | null;
+  batch?: string | null;
+  report?: string | null;
 }
 
 export interface GalleryStats {

@@ -1,7 +1,8 @@
 import type { GalleryAsset } from '../domain/gallery';
 import type { DecideInput, GalleryStore } from './GalleryStore';
 
-function seedAssets(writerId: string): GalleryAsset[] {
+/** Fallback demo rows when `/media/manifest.json` is unavailable. */
+function demoSeedAssets(writerId: string): GalleryAsset[] {
   const now = new Date().toISOString();
   return [
     {
@@ -21,6 +22,9 @@ function seedAssets(writerId: string): GalleryAsset[] {
       createdAt: now,
       updatedAt: now,
       lastWriterId: writerId,
+      title: 'Demo wave 01',
+      partition: 'tattoos',
+      parentSourceId: null,
     },
     {
       id: 'gq-2',
@@ -39,6 +43,9 @@ function seedAssets(writerId: string): GalleryAsset[] {
       createdAt: now,
       updatedAt: now,
       lastWriterId: writerId,
+      title: 'Demo wave 02',
+      partition: 'tattoos',
+      parentSourceId: null,
     },
     {
       id: 'gq-3',
@@ -57,6 +64,9 @@ function seedAssets(writerId: string): GalleryAsset[] {
       createdAt: now,
       updatedAt: now,
       lastWriterId: writerId,
+      title: 'Demo wave 03',
+      partition: 'originals',
+      parentSourceId: null,
     },
   ];
 }
@@ -65,8 +75,9 @@ export class MemoryGalleryStore implements GalleryStore {
   readonly kind = 'memory' as const;
   private rows = new Map<string, GalleryAsset>();
 
-  constructor(writerId = 'memory-seed') {
-    for (const asset of seedAssets(writerId)) {
+  constructor(writerId = 'memory-seed', seed?: GalleryAsset[]) {
+    const initial = seed && seed.length > 0 ? seed : demoSeedAssets(writerId);
+    for (const asset of initial) {
       this.rows.set(asset.assetId, asset);
     }
   }

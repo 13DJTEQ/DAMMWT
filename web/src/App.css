@@ -418,6 +418,137 @@ textarea {
   color: var(--muted);
 }
 
+.asset-meta {
+  margin: 0.25rem 0 0;
+}
+
+.lineage {
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, var(--mwt-maroon));
+}
+
+.lineage__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.lineage__header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mwt-cream);
+}
+
+.lineage__badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mwt-navy);
+  background: var(--mwt-gold);
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+}
+
+.lineage__badge--trace {
+  color: var(--mwt-cream);
+  background: color-mix(in srgb, var(--mwt-red) 70%, var(--mwt-maroon));
+}
+
+.lineage__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.lineage__note code {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  color: var(--mwt-gold);
+}
+
+.lineage__chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.lineage__step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.lineage__arrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-left: 0.15rem;
+}
+
+.lineage__node {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 0.55rem;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: inherit;
+  border-radius: 5px;
+  padding: 0.35rem;
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+
+.lineage__node:hover:not(:disabled) {
+  border-color: var(--mwt-gold);
+}
+
+.lineage__node:disabled {
+  cursor: default;
+}
+
+.lineage__node--current {
+  border-color: color-mix(in srgb, var(--mwt-gold) 55%, var(--line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mwt-gold) 25%, transparent);
+}
+
+.lineage__thumb {
+  width: 48px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--mwt-black);
+}
+
+.lineage__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.lineage__meta strong {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .notes {
   display: flex;
   flex-direction: column;

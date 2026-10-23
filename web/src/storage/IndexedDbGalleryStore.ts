@@ -15,10 +15,18 @@ export class IndexedDbGalleryStore implements GalleryStore {
   private fallback: MemoryGalleryStore | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
   private useMemory = typeof indexedDB === 'undefined';
+  private readonly seedAssets: GalleryAsset[] | undefined;
+
+  constructor(seedAssets?: GalleryAsset[]) {
+    this.seedAssets = seedAssets;
+  }
 
   private memory(): MemoryGalleryStore {
     if (!this.fallback) {
-      this.fallback = new MemoryGalleryStore('indexeddb-fallback');
+      this.fallback = new MemoryGalleryStore(
+        'indexeddb-fallback',
+        this.seedAssets,
+      );
     }
     return this.fallback;
   }
@@ -85,7 +93,7 @@ export class IndexedDbGalleryStore implements GalleryStore {
   private async ensureSeeded(db: IDBDatabase): Promise<void> {
     const existing = await this.readAll(db);
     if (existing.length > 0) return;
-    const seed = new MemoryGalleryStore('indexeddb-seed');
+    const seed = new MemoryGalleryStore('indexeddb-seed', this.seedAssets);
     for (const asset of await seed.list()) {
       await this.put(db, asset);
     }

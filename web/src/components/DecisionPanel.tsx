@@ -4,13 +4,17 @@ import {
   type GalleryAsset,
   type SubmitDecision,
 } from '../domain/gallery';
+import { displayTitle, partitionLabel } from '../media/manifest';
+import { LineageTrail } from './LineageTrail';
 
 interface DecisionPanelProps {
   asset: GalleryAsset | null;
+  assets: readonly GalleryAsset[];
   notes: string;
   busy: boolean;
   onNotesChange: (notes: string) => void;
   onDecide: (decision: SubmitDecision, notes?: string) => void;
+  onSelectAsset: (assetId: string) => void;
 }
 
 const ACTIONS: Array<{ value: SubmitDecision; label: string; hint: string }> = [
@@ -21,10 +25,12 @@ const ACTIONS: Array<{ value: SubmitDecision; label: string; hint: string }> = [
 
 export function DecisionPanel({
   asset,
+  assets,
   notes,
   busy,
   onNotesChange,
   onDecide,
+  onSelectAsset,
 }: DecisionPanelProps): JSX.Element {
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,7 +77,15 @@ export function DecisionPanel({
   return (
     <section className="panel decision-panel" aria-label="Asset review">
       <header className="panel__header">
-        <h2>{asset.assetId}</h2>
+        <div>
+          <h2>{displayTitle(asset)}</h2>
+          <p className="muted asset-meta">
+            {asset.partition ? partitionLabel(asset.partition) : 'Gallery'}
+            {asset.batch ? ` · ${asset.batch}` : ''}
+            {' · '}
+            {asset.assetId}
+          </p>
+        </div>
         <span className={`status status--${asset.status}`}>
           {decisionLabel(asset.status)}
         </span>
@@ -79,9 +93,10 @@ export function DecisionPanel({
       <img
         className="preview"
         src={asset.previewUrl}
-        alt={asset.description ?? asset.assetId}
+        alt={asset.description ?? displayTitle(asset)}
       />
       {asset.description ? <p className="description">{asset.description}</p> : null}
+      <LineageTrail asset={asset} assets={assets} onSelect={onSelectAsset} />
       <label className="notes">
         <span>Notes</span>
         <textarea
