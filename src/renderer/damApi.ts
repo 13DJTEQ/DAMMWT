@@ -11,6 +11,7 @@ import type {
   ReviewStatus,
   SubmitApprovalInput,
 } from '../database/DatabaseManager';
+import type { ShellActionResult } from '../ipc/shellSafe';
 
 export type {
   ApprovalHistoryRow,
@@ -21,6 +22,7 @@ export type {
   ReviewStatus,
   SubmitApprovalInput,
 };
+export type { ShellActionResult };
 
 /** Renderer-facing API — always async so IPC and in-memory mocks share one shape. */
 export interface DamApi {
@@ -34,6 +36,9 @@ export interface DamApi {
     newSourceIdentifier: string,
     previewUrl: string
   ): Promise<ReviewQueueRow>;
+  revealInFolder?(localPath: string): Promise<ShellActionResult>;
+  openLocalPath?(localPath: string): Promise<ShellActionResult>;
+  openCloudUrl?(cloudUrl: string): Promise<ShellActionResult>;
 }
 
 declare global {
@@ -61,6 +66,11 @@ export function getDamApi(): DamApi {
   );
 }
 
+const SHELL_STUB = async (): Promise<ShellActionResult> => ({
+  ok: false,
+  error: 'Shell actions are not available in this context',
+});
+
 /** Wrap a sync DatabaseManager (or compatible) as DamApi. */
 export function createDamApiFromDb(db: {
   ingestAsset(input: IngestAssetInput): ReviewQueueRow;
@@ -82,5 +92,8 @@ export function createDamApiFromDb(db: {
     getAssetVersionHistory: async (assetId) => db.getAssetVersionHistory(assetId),
     resubmitAsset: async (assetId, newSourceIdentifier, previewUrl) =>
       db.resubmitAsset(assetId, newSourceIdentifier, previewUrl),
+    revealInFolder: SHELL_STUB,
+    openLocalPath: SHELL_STUB,
+    openCloudUrl: SHELL_STUB,
   };
 }

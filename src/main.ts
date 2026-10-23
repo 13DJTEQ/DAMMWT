@@ -1,8 +1,12 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { DatabaseManager } from './database/DatabaseManager';
 import { registerIpcHandlers } from './ipc/handlers';
-import { seedMediaFromManifest } from './media/seedMedia';
+import {
+  resolveMediaRoot,
+  seedMediaFromManifest,
+} from './media/seedMedia';
 
 /**
  * Electron main process.
@@ -14,6 +18,25 @@ import { seedMediaFromManifest } from './media/seedMedia';
  */
 
 let db: DatabaseManager | null = null;
+
+/** Media trees the renderer may Reveal / Open via shell IPC. */
+function allowedMediaRoots(): string[] {
+  const roots: string[] = [];
+  const curated = resolveMediaRoot();
+  if (curated) {
+    roots.push(curated);
+  }
+  const webPublic = join(process.cwd(), 'web', 'public', 'media');
+  if (existsSync(webPublic)) {
+    roots.push(webPublic);
+  }
+  // Packaged / sibling assets next to dist/
+  const distSibling = join(__dirname, '..', 'assets', 'media');
+  if (existsSync(distSibling) && !roots.includes(distSibling)) {
+    roots.push(distSibling);
+  }
+  return roots;
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -62,7 +85,14 @@ async function bootstrap(): Promise<void> {
     process.env.DAM_DB_PATH ?? join(app.getPath('userData'), 'dam.db');
   db = new DatabaseManager(dbPath);
   maybeSeedMedia(db);
-  registerIpcHandlers(ipcMain, db);
+  registerIpcHandlers(ipcMain, db, {
+    shell: {
+      showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
+      openPath: (fullPath) => shell.openPath(fullPath),
+      openExternal: (url) => shell.openExternal(url),
+    },
+    allowedMediaRoots: allowedMediaRoots(),
+  });
   createWindow();
 }
 
