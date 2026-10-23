@@ -26,6 +26,8 @@
     "test": "npm run verify",
     "dev": "npm run build && electron .",
     "start": "npm run build && electron .",
+    "rebuild:native": "npx @electron/rebuild -f -w better-sqlite3",
+    "review:electron": "bash scripts/review-electron.sh",
     "curate:media": "node scripts/curate-media.mjs",
     "seed:media": "npm run build && node scripts/seed-media.mjs",
     "verify": "npm run build && node scripts/run-verify.mjs day1 && node scripts/run-verify.mjs day2 && node scripts/run-verify.mjs day5 && node scripts/run-verify.mjs day6 && node scripts/run-verify.mjs gallery",

@@ -120,9 +120,19 @@ export class DatabaseManager {
   private migrate(): void {
     const schemaPath = this.resolveSchemaPath();
     const ddl = readFileSync(schemaPath, 'utf8');
-    this.db.exec(ddl);
+    // Legacy DBs may lack additive columns referenced by schema indexes;
+    // apply table DDL, add columns, then re-apply so indexes succeed.
+    try {
+      this.db.exec(ddl);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/no such column/i.test(msg)) {
+        throw err;
+      }
+    }
     this.migrateLegacyApproved();
     this.ensureMediaLineageColumns();
+    this.db.exec(ddl);
   }
 
   /**

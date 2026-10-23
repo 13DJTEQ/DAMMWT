@@ -20,6 +20,19 @@ Curate media from MWTDAM (optional refresh): `npm run curate:media`. Preview URL
 
 **ABI note:** Host Node 26 cannot compile/load `better-sqlite3@11`. Keep the native addon rebuilt for Electron (`@electron/rebuild`). `seed:media` and `verify*` run under Electron’s Node ABI.
 
+## After every UI / media pass
+
+Agents and humans should relaunch a fresh Electron build for review after each Gallery UI or media change:
+
+```bash
+npm run review:electron
+# If DB may lack new columns / file links (localPath, cloudUrl), re-seed first:
+SEED=1 npm run review:electron
+# Or separately: npm run seed:media
+```
+
+`review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**).
+
 ## Gallery V1
 
 | Layer | Contents |
