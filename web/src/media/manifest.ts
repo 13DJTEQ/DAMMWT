@@ -8,6 +8,10 @@ export interface ManifestAssetRow {
   partition: MediaPartition;
   previewPath?: string;
   previewUrl: string;
+  /** Repo-relative path (assets/media/…) for copy-path UI. */
+  localPath?: string | null;
+  /** Optional Notion / Drive / Supabase / CDN URL. */
+  cloudUrl?: string | null;
   sourcePath?: string | null;
   /** Preferred lineage pointer in newer manifests. */
   parentSourceId?: string | null;
@@ -42,6 +46,10 @@ export function manifestRowToGalleryAsset(
   now = new Date().toISOString(),
 ): GalleryAsset {
   const parentSourceId = resolveParentId(row);
+  const localPath =
+    row.localPath?.trim() ||
+    (row.previewPath ? `assets/media/${row.previewPath}` : null);
+
   return {
     id: row.id ?? row.assetId,
     assetId: row.assetId,
@@ -51,6 +59,8 @@ export function manifestRowToGalleryAsset(
     sourceBackend: 'web',
     sourceIdentifier: row.sourcePath ?? row.previewPath ?? row.assetId,
     previewUrl: row.previewUrl,
+    localPath,
+    cloudUrl: row.cloudUrl?.trim() ? row.cloudUrl.trim() : null,
     projectTag: row.batch ?? row.partition,
     tags: row.tags ?? [row.partition],
     description: row.description ?? null,

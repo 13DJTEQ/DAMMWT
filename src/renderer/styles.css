@@ -565,6 +565,39 @@ button {
   background: transparent;
 }
 
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.65rem 0 0.25rem;
+}
+
+.panel-hint--warn {
+  color: var(--changes, #c9a227);
+}
+
+.queue-item__file-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.queue-file-link {
+  border: 1px solid var(--ink-line);
+  background: transparent;
+  color: var(--fog);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.queue-file-link:hover {
+  color: var(--gold-bright, var(--paper));
+  border-color: var(--accent-dim);
+}
+
 .panel-state {
   margin: 0;
   color: var(--fog);
@@ -656,17 +689,27 @@ button {
 }
 
 .gallery-queue-item {
-  width: 100%;
-  text-align: left;
   border: 1px solid transparent;
   background: rgba(0, 0, 0, 0.2);
   color: inherit;
   border-radius: var(--radius);
   padding: 0.45rem;
   display: grid;
+  gap: 0.35rem;
+}
+
+.gallery-queue-item__select {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 0.65rem;
   align-items: center;
+  cursor: pointer;
 }
 
 .gallery-queue-item:hover {

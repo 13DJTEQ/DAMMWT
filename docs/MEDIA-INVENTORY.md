@@ -59,6 +59,32 @@ Exact counts are always in `manifest.json` → `counts` / `lineageLinks`.
 3. `sourceIdentifier` is the absolute filesystem path to the same file.
 4. Resolve media root: `resolveMediaRoot()` → `assets/media` next to the repo (dev) or relative to `dist/`.
 
+## File links (`localPath` / `cloudUrl`)
+
+Each manifest / ReviewQueue row can carry:
+
+| Field | Meaning |
+|-------|---------|
+| `previewUrl` | Display-only preview (web `/media/…` or Electron `file://`). |
+| `localPath` | Path to the asset on disk. Manifest stores **repo-relative** `assets/media/<previewPath>`; Electron seed writes the **absolute** path under `assets/media/`. |
+| `cloudUrl` | Optional `http(s)` Notion / Drive / Supabase / CDN URL. **Null** in the default curated set — per-plate cloud links are not in the MWTDAM tattoo plan yet (brand Notion links live in `docs/BRAND-ASSETS.md`). |
+
+### Electron Gallery
+
+- **Reveal in Finder / Show file** → `shell.showItemInFolder(localPath)` via IPC `revealInFolder`
+- **Open file** → `shell.openPath(localPath)` via IPC `openLocalPath`
+- **Open cloud** → `shell.openExternal(cloudUrl)` via IPC `openCloudUrl` (only when `cloudUrl` is set)
+
+Paths must resolve under allowed media roots (`assets/media`, `web/public/media`). External opens are limited to `http:` / `https:`.
+
+### Web Gallery
+
+Browsers cannot open Finder. The decision panel offers:
+
+- **Copy local path** (clipboard + note)
+- **Download /media** (served static URL)
+- **Open cloud** (external `<a>` when `cloudUrl` is set)
+
 ## Lineage schema (siblings / generation history)
 
 | Field | Meaning |

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MediaPartition, ReviewQueueRow } from '../damApi';
+import { getDamApi } from '../damApi';
 
 export type GalleryDecision = 'love' | 'keep' | 'reject' | 'changesRequested';
 
@@ -12,6 +13,14 @@ interface ApprovalCardProps {
   onNotesChange: (notes: string) => void;
   onDecide: (decision: GalleryDecision, notes?: string) => void;
   onRevealParent?: (assetId: string) => void;
+}
+
+function resolveLocalPath(asset: ReviewQueueRow): string | null {
+  if (asset.localPath?.trim()) return asset.localPath.trim();
+  if (asset.sourceIdentifier?.trim() && !/^https?:/i.test(asset.sourceIdentifier)) {
+    return asset.sourceIdentifier.trim();
+  }
+  return null;
 }
 
 function partitionLabel(partition: MediaPartition | null): string | null {
@@ -43,6 +52,11 @@ export function ApprovalCard({
   onRevealParent,
 }: ApprovalCardProps): JSX.Element {
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  const [fileHint, setFileHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFileHint(null);
+  }, [asset?.assetId]);
 
   useEffect(() => {
     if (!asset) return;
@@ -99,6 +113,47 @@ export function ApprovalCard({
     !busy && (asset.status === 'pending' || asset.status === 'changesRequested');
   const displayTitle = asset.title?.trim() || asset.assetId;
   const partition = partitionLabel(asset.partition);
+  const localPath = resolveLocalPath(asset);
+  const cloudUrl = asset.cloudUrl?.trim() || null;
+  const revealLabel =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+      ? 'Reveal in Finder'
+      : 'Show file';
+
+  const runShell = async (
+    action: 'reveal' | 'open' | 'cloud'
+  ): Promise<void> => {
+    setFileHint(null);
+    try {
+      const api = getDamApi();
+      if (action === 'reveal') {
+        if (!localPath || !api.revealInFolder) {
+          setFileHint('No local path on this asset.');
+          return;
+        }
+        const result = await api.revealInFolder(localPath);
+        if (!result.ok) setFileHint(result.error ?? 'Could not reveal file');
+        return;
+      }
+      if (action === 'open') {
+        if (!localPath || !api.openLocalPath) {
+          setFileHint('No local path on this asset.');
+          return;
+        }
+        const result = await api.openLocalPath(localPath);
+        if (!result.ok) setFileHint(result.error ?? 'Could not open file');
+        return;
+      }
+      if (!cloudUrl || !api.openCloudUrl) {
+        setFileHint('No cloud URL on this asset.');
+        return;
+      }
+      const result = await api.openCloudUrl(cloudUrl);
+      if (!result.ok) setFileHint(result.error ?? 'Could not open cloud URL');
+    } catch (err) {
+      setFileHint(err instanceof Error ? err.message : 'File action failed');
+    }
+  };
 
   return (
     <section className="approval-panel" aria-label={`Review ${asset.assetId}`}>
@@ -124,6 +179,43 @@ export function ApprovalCard({
           <div className="preview-placeholder">No preview URL on this version</div>
         )}
       </div>
+
+      <div className="file-actions" role="group" aria-label="Open asset file">
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!localPath}
+          title={localPath ?? 'No local path'}
+          onClick={() => void runShell('reveal')}
+        >
+          {revealLabel}
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!localPath}
+          title={localPath ?? 'No local path'}
+          onClick={() => void runShell('open')}
+        >
+          Open file
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!cloudUrl}
+          title={cloudUrl ?? 'No cloud URL (Notion / Drive / CDN)'}
+          onClick={() => void runShell('cloud')}
+        >
+          Open cloud
+        </button>
+      </div>
+      {fileHint ? <p className="panel-hint panel-hint--warn">{fileHint}</p> : null}
+      {!localPath && !cloudUrl ? (
+        <p className="panel-hint">
+          No localPath or cloudUrl on this row — re-run{' '}
+          <code>npm run seed:media</code> after curating.
+        </p>
+      ) : null}
 
       {asset.parentSourceId ? (
         <div className="lineage-panel" aria-label="Generation lineage">

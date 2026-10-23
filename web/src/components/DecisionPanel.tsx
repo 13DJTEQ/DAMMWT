@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   decisionLabel,
   type GalleryAsset,
@@ -33,6 +33,11 @@ export function DecisionPanel({
   onSelectAsset,
 }: DecisionPanelProps): JSX.Element {
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCopyHint(null);
+  }, [asset?.assetId]);
 
   useEffect(() => {
     if (!asset) return;
@@ -74,6 +79,24 @@ export function DecisionPanel({
     );
   }
 
+  const localPath = asset.localPath?.trim() || null;
+  const cloudUrl = asset.cloudUrl?.trim() || null;
+  const mediaDownload =
+    asset.previewUrl?.startsWith('/media/') ||
+    asset.previewUrl?.startsWith('http')
+      ? asset.previewUrl
+      : null;
+
+  const copyLocalPath = async (): Promise<void> => {
+    if (!localPath) return;
+    try {
+      await navigator.clipboard.writeText(localPath);
+      setCopyHint('Path copied — browser cannot open Finder; paste in Terminal or Electron.');
+    } catch {
+      setCopyHint(`Copy failed. Path: ${localPath}`);
+    }
+  };
+
   return (
     <section className="panel decision-panel" aria-label="Asset review">
       <header className="panel__header">
@@ -95,6 +118,46 @@ export function DecisionPanel({
         src={asset.previewUrl}
         alt={asset.description ?? displayTitle(asset)}
       />
+      <div className="file-actions" role="group" aria-label="Open asset file">
+        {localPath ? (
+          <button
+            type="button"
+            className="file-action"
+            title={localPath}
+            onClick={() => void copyLocalPath()}
+          >
+            Copy local path
+          </button>
+        ) : (
+          <span className="muted file-action-note">No localPath</span>
+        )}
+        {mediaDownload ? (
+          <a
+            className="file-action file-action--link"
+            href={mediaDownload}
+            download
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download /media
+          </a>
+        ) : null}
+        {cloudUrl ? (
+          <a
+            className="file-action file-action--link"
+            href={cloudUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open cloud
+          </a>
+        ) : (
+          <span className="muted file-action-note" title="No Notion/Drive/CDN URL on this row">
+            No cloud URL
+          </span>
+        )}
+      </div>
+      {copyHint ? <p className="muted file-action-hint">{copyHint}</p> : null}
       {asset.description ? <p className="description">{asset.description}</p> : null}
       <LineageTrail asset={asset} assets={assets} onSelect={onSelectAsset} />
       <label className="notes">

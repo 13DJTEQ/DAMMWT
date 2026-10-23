@@ -579,6 +579,44 @@ textarea {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--mwt-gold) 40%, transparent);
 }
 
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.file-action {
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.file-action:hover {
+  border-color: var(--mwt-gold);
+}
+
+.file-action--link {
+  display: inline-flex;
+  align-items: center;
+}
+
+.file-action-note {
+  font-size: 0.75rem;
+}
+
+.file-action-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+}
+
 .decision-row {
   display: flex;
   flex-wrap: wrap;

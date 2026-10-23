@@ -48,6 +48,8 @@ For DAM gallery chrome that wants a red–gold accent: use **gold `#D4AF37`** as
 
 ## Source paths
 
+Gallery media file links (`localPath` / `cloudUrl`) are documented in `docs/MEDIA-INVENTORY.md`. Brand marks below are separate from the tattoo SoT inventory; Notion URLs here can be used as `cloudUrl` when staging brand plates into the gallery.
+
 ### Primary logo (authoritative)
 
 - Notion: [MWT Design Kit v2](https://app.notion.com/p/3eeed1cc3348813ea90df44ec7b86cb0) (supersedes archive page `3dced1cc33488132be99cc838365e4b6`)

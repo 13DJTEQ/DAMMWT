@@ -1,5 +1,6 @@
 import type { PartitionFilter, QueueFilter } from '../ReviewController';
 import type { MediaPartition, ReviewQueueRow, ReviewStatus } from '../damApi';
+import { getDamApi } from '../damApi';
 
 interface ReviewQueueProps {
   queue: ReviewQueueRow[];
@@ -142,14 +143,17 @@ export function ReviewQueue({
             const part = partitionLabel(row.partition);
             const label = row.title?.trim() || row.assetId;
             return (
-              <li key={row.assetId}>
+              <li
+                key={row.assetId}
+                className={
+                  selected
+                    ? 'gallery-queue-item gallery-queue-item--selected'
+                    : 'gallery-queue-item'
+                }
+              >
                 <button
                   type="button"
-                  className={
-                    selected
-                      ? 'gallery-queue-item gallery-queue-item--selected'
-                      : 'gallery-queue-item'
-                  }
+                  className="gallery-queue-item__select"
                   onClick={() => onSelect(row.assetId)}
                   aria-current={selected ? 'true' : undefined}
                 >
@@ -181,6 +185,34 @@ export function ReviewQueue({
                     ) : null}
                   </span>
                 </button>
+                {row.localPath || row.cloudUrl ? (
+                  <span className="queue-item__file-links">
+                    {row.localPath ? (
+                      <button
+                        type="button"
+                        className="queue-file-link"
+                        title="Reveal in Finder / Show file"
+                        onClick={() => {
+                          void getDamApi().revealInFolder?.(row.localPath!);
+                        }}
+                      >
+                        Show file
+                      </button>
+                    ) : null}
+                    {row.cloudUrl ? (
+                      <button
+                        type="button"
+                        className="queue-file-link"
+                        title="Open cloud URL"
+                        onClick={() => {
+                          void getDamApi().openCloudUrl?.(row.cloudUrl!);
+                        }}
+                      >
+                        Cloud
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
               </li>
             );
           })}

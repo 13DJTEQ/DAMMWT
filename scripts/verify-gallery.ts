@@ -1,7 +1,7 @@
 /**
  * Gallery V1 acceptance: love / keep / reject + notes via DB/IPC + App chrome.
  */
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import React from 'react';
@@ -13,6 +13,10 @@ import {
   registerIpcHandlers,
   type IpcMainLike,
 } from '../src/ipc/handlers';
+import {
+  assertSafeExternalUrl,
+  resolveUnderAllowedRoots,
+} from '../src/ipc/shellSafe';
 import { createDamApiFromDb, setDamApi } from '../src/renderer/damApi';
 import { ReviewController } from '../src/renderer/ReviewController';
 import { App } from '../src/renderer/App';
@@ -224,11 +228,60 @@ async function main(): Promise<void> {
       throw new Error('App render missing Originals / Source of Truth partition chrome');
     }
 
+    // File links: localPath / cloudUrl + shell path guards
+    const mediaDir = join(dir, 'media');
+    mkdirSync(mediaDir, { recursive: true });
+    const sampleFile = join(mediaDir, 'sample.jpg');
+    writeFileSync(sampleFile, 'x');
+    await viaIpc.ingestAsset({
+      assetId: 'file-link-a',
+      sourceBackend: 'local',
+      sourceIdentifier: sampleFile,
+      previewUrl: 'file://' + sampleFile,
+      localPath: sampleFile,
+      cloudUrl: 'https://example.com/asset',
+      partition: 'tattoos',
+      title: 'File link sample',
+    });
+    const linked = db.getByAssetId('file-link-a');
+    if (linked?.localPath !== sampleFile || linked?.cloudUrl !== 'https://example.com/asset') {
+      throw new Error(`localPath/cloudUrl not persisted: ${JSON.stringify(linked)}`);
+    }
+    const allowed = resolveUnderAllowedRoots(sampleFile, [mediaDir]);
+    if (!allowed.ok) {
+      throw new Error(`Expected allowed path: ${allowed.error}`);
+    }
+    const denied = resolveUnderAllowedRoots('/etc/passwd', [mediaDir]);
+    if (denied.ok) {
+      throw new Error('Path outside media roots must be denied');
+    }
+    const badProto = assertSafeExternalUrl('file:///tmp/x');
+    if (badProto.ok) {
+      throw new Error('file: protocol must be rejected for openCloudUrl');
+    }
+    const shellUnavailable = await viaIpc.revealInFolder(sampleFile);
+    if (shellUnavailable.ok) {
+      throw new Error('revealInFolder without shell options should fail closed');
+    }
+    if (!text.includes('Open file') && !text.includes('Reveal') && !text.includes('Show file')) {
+      // ApprovalCard may not be mounted for selected asset in this snap — still OK if chrome exists after select
+    }
+    await controller.setFilter('all');
+    controller.selectAsset('file-link-a');
+    await act(async () => {
+      await controller.refresh();
+    });
+    const textWithLinks = collectText(renderer!.toJSON());
+    if (!textWithLinks.includes('Open file') || !textWithLinks.includes('Open cloud')) {
+      throw new Error('ApprovalCard missing file link actions');
+    }
+
     console.log(
       JSON.stringify(
         {
           stats: await viaIpc.getQueueStats(),
           channels: [...registered],
+          fileLinks: { localPath: true, cloudUrl: true, shellGuards: true },
         },
         null,
         2

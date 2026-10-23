@@ -32,6 +32,10 @@ export interface GalleryAsset {
   sourceBackend: SourceBackendType;
   sourceIdentifier: string;
   previewUrl: string;
+  /** Repo-relative or absolute path for copy-path UI (browser cannot open Finder). */
+  localPath?: string | null;
+  /** Optional Notion / Drive / Supabase / CDN URL. */
+  cloudUrl?: string | null;
   projectTag: string | null;
   tags: string[];
   description: string | null;
