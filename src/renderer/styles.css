@@ -5,7 +5,7 @@
   --mwt-maroon: #8b0000;
   --mwt-navy: #0a192f;
   --mwt-charcoal: #1a1a1a;
-  --mwt-cream: #f5f0e6;
+  --mwt-cream: #f4ede1;
 
   --ink: var(--mwt-navy);
   --ink-elevated: #121c2e;
@@ -137,12 +137,13 @@ button {
 
 .brand-wordmark {
   display: block;
-  height: 36px;
+  height: 56px;
   width: auto;
-  max-width: min(280px, 55vw);
+  max-width: min(220px, 48vw);
   object-fit: contain;
   object-position: left center;
-  border-radius: 2px;
+  border-radius: 4px;
+  background: #000;
 }
 
 .brand-name {
@@ -664,6 +665,6 @@ button {
   }
 
   .brand-wordmark {
-    height: 28px;
+    height: 44px;
   }
 }

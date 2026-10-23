@@ -1,20 +1,15 @@
-# Brand asset sources (copied read-only from MWTDAM vault)
+# Brand asset sources
 
-Vault root: `…/MediaWaveTechnology/MediaWaveTech/MWTDAM/`
+Canonical: `assets/brand/` (hard-linked → `web/public/brand/` + `src/renderer/assets/brand/`).
+
+Full inventory, palette, and gaps: `docs/BRAND-ASSETS.md`.
 
 | File | Source |
 |------|--------|
-| mwt-emblem.png | graphics/mwt-iterations/email-signature/mwt-emblem-email-sig.png |
-| mwt-emblem-dark.png | graphics/mwt-iterations/email-signature/mwt-emblem-email-sig-dark.png |
-| mwt-spiral-mark.png | graphics/mwt-iterations/email-signature/variations/11-spiral-mwt-dark.png |
-| mwt-mono-gold.png | graphics/mwt-iterations/email-signature/variations/04-mono-gold-dark.png |
-| media-wave-horizontal-lockup.jpg | graphics/mwt-iterations/02-horizontal-lockup.jpg |
-| media-wave-technology-wordmark.jpg | graphics/mwt-iterations/components/element-5x/media-wave-technology/media-wave-technology-v01.jpg |
-| mwt-initials.png | graphics/mwt-refs/mwt-initials-source.png |
-| fibonacci-iris.png | graphics/mwt-iterations/components/emblem-layers/fibonacci-iris.png |
-| gold-spiral.png | graphics/mwt-iterations/components/emblem-layers/element-extracts/05-gold-spiral-spiral.png |
-| fibonacci-spiral.jpg | graphics/mwt-iterations/components/element-5x/fibonacci-spiral/fibonacci-spiral-v01.jpg |
-| gold-spiral-component.jpg | graphics/mwt-iterations/components/02-gold-spiral.jpg |
-| brand.gallery-ref.json | gallery-collapse-qa/gallery/brand.json |
-
-Palette / type rules: `docs/MWTDAM-V1/Brand DNA & Design Kit refs.md` (vault) and Notion MWT Design Kit.
+| mwt-logo-primary.jpeg | MWT-Graphics-Canonical/logos/logos-2026-09-27/03-circle-gold-frame-navy-wave-MEDIA-WAVE-TECHNOLOGY.jpeg |
+| mwt-emblem.png | MWTDAM/graphics/mwt-iterations/email-signature/mwt-emblem-email-sig.png |
+| mwt-emblem-dark.png | MWTDAM/…/email-signature/mwt-emblem-email-sig-dark.png |
+| mwt-spiral-mark.png | MWTDAM/…/email-signature/variations/11-spiral-mwt-dark.png |
+| fib-spiral.svg | MWT-Graphics-Canonical/design-kit/motifs-fib-spiral/fib-spiral.svg |
+| fibonacci-iris.png | MWTDAM/…/components/emblem-layers/fibonacci-iris.png |
+| palette.json | Design Kit v2 + Brand DNA hexes |

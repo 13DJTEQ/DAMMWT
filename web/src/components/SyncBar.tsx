@@ -35,7 +35,7 @@ export function SyncBar({
         </div>
         <img
           className="brand__lockup"
-          src="/brand/media-wave-horizontal-lockup.jpg"
+          src="/brand/mwt-logo-primary.jpeg"
           alt="Media Wave Technology"
         />
       </div>

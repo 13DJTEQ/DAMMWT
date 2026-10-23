@@ -4,7 +4,7 @@ export function SpiralAccent(): JSX.Element {
     <div className="spiral-accent" aria-hidden="true">
       <img
         className="spiral-accent__img spiral-accent__img--primary"
-        src="/brand/gold-spiral.png"
+        src="/brand/fib-spiral.svg"
         alt=""
       />
       <img

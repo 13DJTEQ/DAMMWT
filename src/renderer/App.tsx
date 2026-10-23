@@ -54,7 +54,7 @@ export function App({
       <div className="app-shell__spiral" aria-hidden="true">
         <img
           className="app-shell__spiral-img app-shell__spiral-img--primary"
-          src="./assets/brand/gold-spiral.png"
+          src="./assets/brand/fib-spiral.svg"
           alt=""
           draggable={false}
         />
@@ -78,7 +78,7 @@ export function App({
             />
             <img
               className="brand-wordmark"
-              src="./assets/brand/media-wave-horizontal-lockup.jpg"
+              src="./assets/brand/mwt-logo-primary.jpeg"
               alt="Media Wave Technology"
               draggable={false}
             />
