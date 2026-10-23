@@ -103,7 +103,7 @@ Web UI: `buildLineageChain()` in `web/src/media/manifest.ts` + `LineageTrail` on
 
 ## Push a single file / folder (`npm run push:media`)
 
-For Cursor skills or one-off plates (including absolute paths outside the repo):
+Cursor skill: **`dammwt-push-media`** (personal install `~/.agents/skills/dammwt-push-media/`; project pointer `.cursor/skills/dammwt-push-media/`). For Cursor skills or one-off plates (including absolute paths outside the repo):
 
 ```bash
 # From DAMMWT (cwd = repo). --file may be absolute.

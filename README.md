@@ -18,6 +18,8 @@ npm start               # build + Electron → Gallery UI with tattoo originals/
 
 Curate media from MWTDAM (optional refresh): `npm run curate:media`. Preview URLs use `file://` under `assets/media/` (allowed by the renderer CSP).
 
+**Cross-repo ingest:** `npm run push:media -- --file /abs/out.png --partition generated --pipeline comfy` stages into `assets/media/`, upserts the manifest, and ingests ReviewQueue. Agents: skill `dammwt-push-media` (personal `~/.agents/skills/dammwt-push-media/`; project pointer `.cursor/skills/dammwt-push-media/`). Details: [docs/MEDIA-INVENTORY.md](docs/MEDIA-INVENTORY.md#push-a-single-file--folder-npm-run-pushmedia).
+
 **ABI note:** Host Node 26 cannot compile/load `better-sqlite3@11`. Keep the native addon rebuilt for Electron (`@electron/rebuild`). `seed:media` and `verify*` run under Electron’s Node ABI.
 
 ## After every UI / media pass

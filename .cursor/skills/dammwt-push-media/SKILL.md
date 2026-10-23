@@ -2,8 +2,9 @@
 name: dammwt-push-media
 description: >-
   Push image/media files into MWT DAM (DAMMWT) from any repo. Project pointer to
-  the personal skill. Use when ingesting tattoo, Comfy, or logo assets via
-  npm run push:media.
+  the personal skill (~/.agents/skills/dammwt-push-media). Use for push to DAM,
+  ingest into DAMMWT, send graphics to gallery, push:media, or staging tattoo /
+  Comfy / logo assets into the Gallery.
 ---
 
 # DAMMWT push media (project pointer)

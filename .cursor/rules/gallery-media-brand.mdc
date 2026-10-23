@@ -11,6 +11,7 @@ alwaysApply: true
 - Manifest: `assets/media/manifest.json`. Inventory/docs: `docs/MEDIA-INVENTORY.md`.
 - Upstream vault (refresh): MWTDAM `tattoo-designs/tattoo/` via `npm run curate:media`.
 - Lineage: `parentSourceId` null = SoT original; walk parents to SoT; siblings share a parent.
+- Cross-repo ingest (push to DAM / send graphics into Gallery): personal skill `dammwt-push-media` → `npm run push:media` (see `.cursor/skills/dammwt-push-media/`).
 
 ## Gallery file links
 
