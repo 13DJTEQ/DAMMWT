@@ -1,18 +1,33 @@
 :root {
-  --bg: #12151a;
-  --bg-elev: #1a1f27;
-  --bg-panel: #222833;
-  --line: #323a48;
-  --text: #e8ecf2;
-  --muted: #9aa3b2;
-  --accent: #3d8bfd;
-  --love: #e35d6a;
-  --keep: #3cb371;
-  --reject: #c9a227;
-  --pending: #7a8494;
-  --radius: 10px;
-  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* MWT Design Kit — primary + secondary */
+  --mwt-red: #ff0000;
+  --mwt-gold: #d4af37;
+  --mwt-maroon: #8b0000;
+  --mwt-navy: #0a192f;
+  --mwt-charcoal: #1a1a1a;
+  --mwt-cream: #f5f0e6;
+  --mwt-white: #ffffff;
+  --mwt-black: #000000;
+
+  --bg: var(--mwt-navy);
+  --bg-deep: #050d18;
+  --bg-elev: #121c2e;
+  --bg-panel: color-mix(in srgb, var(--mwt-charcoal) 72%, var(--mwt-navy));
+  --line: color-mix(in srgb, var(--mwt-gold) 28%, #2a3040);
+  --text: var(--mwt-cream);
+  --muted: #b8a98a;
+  --accent: var(--mwt-gold);
+  --accent-hot: var(--mwt-red);
+  --love: #e01818;
+  --keep: var(--mwt-gold);
+  --reject: #6b5a4a;
+  --pending: #8a7a66;
+  --changes: #c9a227;
+  --radius: 8px;
+  --font-display: 'Playfair Display', 'Times New Roman', serif;
+  --font: 'Work Sans', 'Avenir Next', 'Segoe UI', sans-serif;
+  --mono: 'Work Sans', ui-monospace, monospace;
+  color-scheme: dark;
 }
 
 * {
@@ -29,10 +44,14 @@ body,
 body {
   font-family: var(--font);
   color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, #1e2a3d 0%, transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, #2a1f28 0%, transparent 50%),
-    var(--bg);
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse 900px 520px at 8% -8%, color-mix(in srgb, var(--mwt-maroon) 55%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 780px 480px at 96% 4%, color-mix(in srgb, var(--mwt-gold) 22%, transparent) 0%, transparent 52%),
+    radial-gradient(ellipse 640px 420px at 50% 110%, color-mix(in srgb, var(--mwt-red) 14%, transparent) 0%, transparent 55%),
+    linear-gradient(165deg, var(--mwt-navy) 0%, var(--bg-deep) 48%, #0c1018 100%);
+  background-attachment: fixed;
+  line-height: 1.45;
 }
 
 button,
@@ -41,6 +60,7 @@ textarea {
 }
 
 .app-shell {
+  position: relative;
   max-width: 1200px;
   margin: 0 auto;
   padding: 1.25rem 1.5rem 2rem;
@@ -48,28 +68,126 @@ textarea {
   flex-direction: column;
   gap: 1rem;
   min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Fibonacci / gold spiral — elegant atmospheric accent */
+.spiral-accent {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.spiral-accent__img {
+  position: absolute;
+  width: min(72vw, 640px);
+  height: auto;
+  opacity: 0.11;
+  mix-blend-mode: screen;
+  filter: saturate(1.15) contrast(1.05);
+  animation: spiral-drift 48s ease-in-out infinite alternate;
+}
+
+.spiral-accent__img--primary {
+  top: -6%;
+  right: -8%;
+  transform: rotate(-8deg);
+}
+
+.spiral-accent__img--secondary {
+  bottom: -12%;
+  left: -14%;
+  width: min(55vw, 420px);
+  opacity: 0.07;
+  animation-duration: 64s;
+  animation-direction: alternate-reverse;
+  transform: rotate(12deg) scaleX(-1);
+}
+
+@keyframes spiral-drift {
+  from {
+    transform: rotate(-8deg) translate3d(0, 0, 0);
+  }
+  to {
+    transform: rotate(-2deg) translate3d(-18px, 22px, 0);
+  }
+}
+
+.app-shell > *:not(.spiral-accent) {
+  position: relative;
+  z-index: 1;
 }
 
 .sync-bar {
   display: grid;
-  gap: 0.75rem;
-  padding: 1rem 1.15rem;
-  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem 1.15rem;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--bg-elev) 92%, var(--mwt-maroon)) 0%,
+      color-mix(in srgb, var(--bg-elev) 88%, transparent) 100%
+    );
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mwt-gold) 18%, transparent);
+}
+
+.brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.1rem;
+}
+
+.brand__emblem {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--mwt-gold) 35%, transparent));
+}
+
+.brand__copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.brand__lockup {
+  display: block;
+  height: 28px;
+  width: auto;
+  max-width: min(280px, 55vw);
+  object-fit: contain;
+  object-position: left center;
 }
 
 .brand__name {
-  font-size: 1.35rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 3.5vw, 2.15rem);
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  color: var(--mwt-cream);
+  text-transform: uppercase;
+}
+
+.brand__name span {
+  color: var(--mwt-gold);
 }
 
 .brand__sub {
   display: block;
   color: var(--muted);
-  font-size: 0.85rem;
-  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 0.1rem;
 }
 
 .stats,
@@ -82,6 +200,7 @@ textarea {
 
 .stats strong {
   font-variant-numeric: tabular-nums;
+  color: var(--mwt-gold);
 }
 
 .pill {
@@ -89,18 +208,30 @@ textarea {
   font-size: 0.75rem;
   color: var(--muted);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 0.2rem 0.55rem;
+  background: color-mix(in srgb, var(--mwt-black) 35%, transparent);
 }
 
 .sync-btn {
   margin-left: auto;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.45rem 0.9rem;
+  background: linear-gradient(180deg, var(--mwt-red) 0%, var(--mwt-maroon) 100%);
+  color: var(--mwt-white);
+  border: 1px solid color-mix(in srgb, var(--mwt-gold) 45%, var(--mwt-red));
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
   cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.sync-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.sync-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .sync-btn:disabled {
@@ -126,14 +257,19 @@ textarea {
   .layout {
     grid-template-columns: 1fr;
   }
+
+  .brand__lockup {
+    display: none;
+  }
 }
 
 .panel {
-  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1rem;
   min-height: 320px;
+  backdrop-filter: blur(6px);
 }
 
 .panel__header {
@@ -147,7 +283,11 @@ textarea {
 
 .panel__header h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mwt-cream);
 }
 
 .panel-state {
@@ -166,17 +306,19 @@ textarea {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
 .chip--active,
 .chip[aria-selected='true'] {
-  color: var(--text);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--mwt-cream);
+  border-color: var(--mwt-gold);
+  background: color-mix(in srgb, var(--mwt-gold) 16%, transparent);
 }
 
 .queue {
@@ -197,22 +339,27 @@ textarea {
   border: 1px solid var(--line);
   background: var(--bg-elev);
   color: inherit;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 0.4rem;
   cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.queue-item:hover {
+  border-color: color-mix(in srgb, var(--mwt-gold) 55%, var(--line));
 }
 
 .queue-item--selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--mwt-gold);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mwt-gold) 45%, transparent);
 }
 
 .queue-item__thumb {
   width: 72px;
   height: 54px;
   object-fit: cover;
-  border-radius: 6px;
-  background: #0d1014;
+  border-radius: 4px;
+  background: var(--mwt-black);
 }
 
 .queue-item__body {
@@ -232,8 +379,9 @@ textarea {
 .status {
   font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--pending);
+  font-weight: 600;
 }
 
 .status--love {
@@ -246,7 +394,7 @@ textarea {
   color: var(--reject);
 }
 .status--changesRequested {
-  color: #c792ea;
+  color: var(--changes);
 }
 
 .muted {
@@ -258,8 +406,8 @@ textarea {
   width: 100%;
   max-height: 360px;
   object-fit: cover;
-  border-radius: 8px;
-  background: #0d1014;
+  border-radius: 6px;
+  background: var(--mwt-black);
   border: 1px solid var(--line);
 }
 
@@ -275,13 +423,27 @@ textarea {
   margin-top: 1rem;
 }
 
+.notes span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mwt-gold);
+}
+
 .notes textarea {
   resize: vertical;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--bg-elev);
   color: var(--text);
   padding: 0.65rem 0.75rem;
+}
+
+.notes textarea:focus {
+  outline: none;
+  border-color: var(--mwt-gold);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mwt-gold) 40%, transparent);
 }
 
 .decision-row {
@@ -298,9 +460,11 @@ textarea {
   border: 1px solid var(--line);
   background: var(--bg-elev);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 0.55rem 0.85rem;
   cursor: pointer;
+  font-weight: 600;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .decide kbd {
@@ -308,18 +472,21 @@ textarea {
   font-size: 0.7rem;
   color: var(--muted);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 0.05rem 0.3rem;
 }
 
 .decide--love:hover {
   border-color: var(--love);
+  background: color-mix(in srgb, var(--love) 14%, var(--bg-elev));
 }
 .decide--keep:hover {
   border-color: var(--keep);
+  background: color-mix(in srgb, var(--keep) 14%, var(--bg-elev));
 }
 .decide--reject:hover {
   border-color: var(--reject);
+  background: color-mix(in srgb, var(--reject) 18%, var(--bg-elev));
 }
 
 .decide:disabled {
@@ -334,9 +501,18 @@ textarea {
 .foot {
   color: var(--muted);
   font-size: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  padding-top: 0.85rem;
 }
 
 .foot code {
   font-family: var(--mono);
   font-size: 0.8em;
+  color: var(--mwt-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spiral-accent__img {
+    animation: none;
+  }
 }

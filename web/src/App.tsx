@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DecisionPanel } from './components/DecisionPanel';
 import { GalleryList } from './components/GalleryList';
+import { SpiralAccent } from './components/SpiralAccent';
 import { SyncBar } from './components/SyncBar';
 import {
   computeStats,
@@ -113,6 +114,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="app-shell">
+      <SpiralAccent />
       <SyncBar
         storeKind={store.kind}
         sync={syncStatus}
@@ -146,7 +148,8 @@ export function App(): JSX.Element {
         />
       </main>
       <footer className="foot">
-        Local store + memory sync transport. Cloud default: Supabase (stub). See{' '}
+        Media Wave Technology · Gallery V1 (Love / Keep / Reject + notes). Local
+        store + memory sync; cloud default Supabase (stub). See{' '}
         <code>docs/WEB-SYNC.md</code>.
       </footer>
     </div>

@@ -20,8 +20,24 @@ export function SyncBar({
   return (
     <header className="sync-bar" aria-label="Sync status">
       <div className="brand">
-        <span className="brand__name">MWT DAM</span>
-        <span className="brand__sub">Web Gallery · sync scaffold</span>
+        <img
+          className="brand__emblem"
+          src="/brand/mwt-emblem.png"
+          alt="MWT emblem"
+          width={56}
+          height={56}
+        />
+        <div className="brand__copy">
+          <p className="brand__name">
+            Media <span>Wave</span>
+          </p>
+          <span className="brand__sub">MWT DAM · Web Gallery</span>
+        </div>
+        <img
+          className="brand__lockup"
+          src="/brand/media-wave-horizontal-lockup.jpg"
+          alt="Media Wave Technology"
+        />
       </div>
       <div className="stats" aria-label="Decision stats">
         <span>
