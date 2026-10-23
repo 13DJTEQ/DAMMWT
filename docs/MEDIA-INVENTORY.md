@@ -101,6 +101,36 @@ Browsers cannot open Finder. The decision panel offers:
 
 Web UI: `buildLineageChain()` in `web/src/media/manifest.ts` + `LineageTrail` on the decision panel.
 
+## Push a single file / folder (`npm run push:media`)
+
+For Cursor skills or one-off plates (including absolute paths outside the repo):
+
+```bash
+# From DAMMWT (cwd = repo). --file may be absolute.
+npm run push:media -- --file /path/to/out.png --partition generated \
+  --pipeline my-run --tags gen,test --batch demo-2026-10-23
+
+# From another repo / skill
+DAMMWT_ROOT=/path/to/DAMMWT npm run push:media --prefix "$DAMMWT_ROOT" -- \
+  --file /abs/out.png --partition tattoos --pipeline flash --parent orig-base-01-irezumi-color-dragon
+
+# Dir of images + dry-run
+npm run push:media -- --dir ./exports --partition generated --dry-run
+```
+
+| Flag | Role |
+|------|------|
+| `--file` / `--dir` | Source image(s); absolute paths OK |
+| `--partition` | `originals` \| `tattoos` \| `generated` |
+| `--pipeline` | Optional subfolder under the partition |
+| `--asset-id` | Explicit id (`--file` only) |
+| `--parent` | `parentSourceId` |
+| `--tags` / `--batch` / `--cloud-url` / `--title` | Metadata |
+| `--dry-run` | Plan only |
+| `--no-ingest` | Skip Electron DB seed |
+
+Staging: copy/hardlink → `assets/media/<partition>/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent `ingestAssetIfAbsent`). Set `DAMMWT_ROOT` when the skill’s cwd is not the DAMMWT repo; resolve the script via `npm run push:media --prefix "$DAMMWT_ROOT"`.
+
 ## Refresh from MWTDAM
 
 Source of truth on disk (iCloud default):
@@ -130,6 +160,20 @@ Then re-seed Electron if needed:
 ```bash
 npm run seed:media
 ```
+
+## Push a single file (any repo)
+
+To stage one or more files from **outside** this checkout (tattoo vault, Comfy output, logo exports):
+
+```bash
+npm run push:media -- --file /absolute/path.jpg --pipeline tattoo --batch flash
+# pipelines: tattoo → tattoos/ | comfy → generated/comfy/ | logo → originals/logos/
+# flags: --partition --parent --batch --cloud-url --title --id --dest --no-seed
+```
+
+From another project, set `DAMMWT_ROOT` and use the Cursor skill wrapper
+`dammwt-push-media` (`~/.agents/skills/dammwt-push-media/`). After push, review with
+`npm run review:electron` (seed runs by default unless `--no-seed`).
 
 ### Full vault vs curated subset
 
