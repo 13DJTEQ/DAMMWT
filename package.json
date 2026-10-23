@@ -30,6 +30,7 @@
     "review:electron": "bash scripts/review-electron.sh",
     "curate:media": "node scripts/curate-media.mjs",
     "push:media": "node scripts/push-media.mjs",
+    "dam:section": "node scripts/push-media.mjs --create-section",
     "seed:media": "npm run build && node scripts/seed-media.mjs",
     "verify": "npm run build && node scripts/run-verify.mjs day1 && node scripts/run-verify.mjs day2 && node scripts/run-verify.mjs day5 && node scripts/run-verify.mjs day6 && node scripts/run-verify.mjs gallery",
     "verify:day1": "npm run build && node scripts/run-verify.mjs day1",

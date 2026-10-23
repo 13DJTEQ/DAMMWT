@@ -25,11 +25,18 @@ assets/media/
     body-maps/        # (+ arms/, legs/)
     scorpions/
   generated/          # Optional non-tattoo gens (empty in default curated set)
+  projects/           # Isolated per-project sections (optional)
+    <projectSlug>/
+      originals/
+      tattoos/
+      generated/
   manifest.json
   MANIFEST.json
 ```
 
 `web/public/media/` mirrors the same tree for the browser gallery.
+
+**Project sections** keep skill / client work out of the shared curated partitions. Registry: `manifest.projects[]` (`slug`, `path`, `partitions`, `createdAt`). Asset rows carry `project` + `projectTag` (Gallery filter) and tags `project:<slug>`; auto `assetId`s are prefixed `proj-<slug>-…`.
 
 ## Counts (default curated plan)
 
@@ -122,6 +129,8 @@ npm run push:media -- --dir ./exports --partition generated --dry-run
 |------|------|
 | `--file` / `--dir` | Source image(s); absolute paths OK |
 | `--partition` | `originals` \| `tattoos` \| `generated` |
+| `--project` | Isolate under `projects/<slug>/<partition>/…`; sets `project` / `projectTag` + tags |
+| `--create-section` | Ensure project dirs + `manifest.projects` entry (no file push) |
 | `--pipeline` | Optional subfolder under the partition |
 | `--asset-id` | Explicit id (`--file` only) |
 | `--parent` | `parentSourceId` |
@@ -129,7 +138,39 @@ npm run push:media -- --dir ./exports --partition generated --dry-run
 | `--dry-run` | Plan only |
 | `--no-ingest` | Skip Electron DB seed |
 
-Staging: copy/hardlink → `assets/media/<partition>/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent `ingestAssetIfAbsent`). Set `DAMMWT_ROOT` when the skill’s cwd is not the DAMMWT repo; resolve the script via `npm run push:media --prefix "$DAMMWT_ROOT"` or the Cursor skill wrapper `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. After push, review in Gallery with `npm run review:electron` (use `SEED=1` if links/schema look stale).
+Staging: copy/hardlink → `assets/media/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent). Set `DAMMWT_ROOT` when cwd is not DAMMWT; use `npm run push:media --prefix "$DAMMWT_ROOT"` or `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. After push: `npm run review:electron` (`SEED=1` if links/schema look stale).
+
+## Project sections (`npm run dam:section`)
+
+Create an isolated project tree (idempotent — re-running only ensures dirs + registry):
+
+```bash
+npm run dam:section -- --project my-client
+# same as:
+npm run push:media -- --create-section --project my-client
+```
+
+Creates:
+
+```
+assets/media/projects/<slug>/{originals,tattoos,generated}/
+web/public/media/projects/<slug>/{originals,tattoos,generated}/
+```
+
+and registers `{ slug, path: "projects/<slug>", partitions, createdAt }` in `manifest.projects`.
+
+Push into the section:
+
+```bash
+npm run push:media -- --file /abs/out.png --partition generated \
+  --project my-client --pipeline comfy --batch run-1 --no-ingest
+
+# → assets/media/projects/my-client/generated/comfy/out.png
+# → assetId proj-my-client-gen-comfy-out
+# → projectTag / tags: my-client, project:my-client
+```
+
+`curate:media` preserves existing `manifest.projects` / `projectSchema` when rewriting the curated catalog. Gallery UI filter by project may land separately; Electron stores `projectTag` on ingest.
 
 ## Refresh from MWTDAM
 

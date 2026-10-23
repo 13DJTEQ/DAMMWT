@@ -28,6 +28,10 @@ export interface ManifestAsset {
   parentId?: string | null;
   batch?: string | null;
   report?: string | null;
+  /** Project section slug (`projects/<slug>/…` / manifest.projects). */
+  project?: string | null;
+  /** Gallery filter; usually same as `project`. */
+  projectTag?: string | null;
   tags?: string[];
   description?: string | null;
 }
@@ -163,7 +167,8 @@ export function seedMediaFromManifest(
       previewUrl: previewFileUrl(mediaRoot, previewPath),
       localPath,
       cloudUrl,
-      projectTag: asset.batch ?? asset.partition,
+      projectTag:
+        asset.projectTag ?? asset.project ?? asset.batch ?? asset.partition,
       tags,
       description: asset.description ?? undefined,
       partition: asset.partition,

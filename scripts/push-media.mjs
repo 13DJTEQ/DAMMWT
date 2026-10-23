@@ -8,10 +8,17 @@
  *   DAMMWT_ROOT=/path/to/DAMMWT node "$DAMMWT_ROOT/scripts/push-media.mjs" \
  *     --file /abs/out.png --partition generated
  *
+ * Project sections (isolated trees):
+ *   npm run dam:section -- --project my-slug
+ *   npm run push:media -- --create-section --project my-slug
+ *   npm run push:media -- --file /abs/out.png --partition generated --project my-slug
+ *
  * Flags:
  *   --file <path>           Single source file (absolute or relative to cwd)
  *   --dir <path>            Directory of images to push
- *   --partition <name>      originals | tattoos | generated (required)
+ *   --partition <name>      originals | tattoos | generated (required unless --create-section)
+ *   --project <slug>        Project section; stages under projects/<slug>/<partition>/…
+ *   --create-section        Ensure project dirs + manifest.projects entry (no file push)
  *   --asset-id <id>         Explicit assetId (only with --file)
  *   --parent <assetId>      parentSourceId lineage pointer
  *   --tags <a,b,c>          Comma-separated tags
@@ -45,6 +52,7 @@ const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PARTITIONS = new Set(['originals', 'tattoos', 'generated']);
+const PARTITION_LIST = ['originals', 'tattoos', 'generated'];
 const IMAGE_EXTS = new Set([
   '.jpg',
   '.jpeg',
@@ -57,15 +65,21 @@ const IMAGE_EXTS = new Set([
   '.tiff',
 ]);
 
+/** @typedef {{ slug: string, path: string, partitions: string[], createdAt: string, updatedAt?: string }} ProjectSection */
+
 function printUsage(code = 1) {
   console.log(`Usage:
   npm run push:media -- --file <path> --partition <originals|tattoos|generated> [options]
   npm run push:media -- --dir <path> --partition <…> [options]
+  npm run push:media -- --create-section --project <slug>
+  npm run dam:section -- --project <slug>
 
 Options:
   --file <path>        Single image (absolute OK from any cwd when DAMMWT_ROOT set)
   --dir <path>         Directory of images
-  --partition <name>   originals | tattoos | generated (required)
+  --partition <name>   originals | tattoos | generated (required for push)
+  --project <slug>     Isolate under projects/<slug>/…; tags + projectTag set
+  --create-section     Create/ensure project dirs + manifest registry (idempotent)
   --asset-id <id>      Explicit assetId (--file only)
   --parent <assetId>   parentSourceId
   --tags <a,b,c>       Comma-separated tags
@@ -98,6 +112,10 @@ function parseArgs(argv) {
     }
     if (a === '--no-ingest') {
       out.noIngest = true;
+      continue;
+    }
+    if (a === '--create-section' || a === 'create-section') {
+      out.createSection = true;
       continue;
     }
     if (!a.startsWith('--')) {
@@ -135,29 +153,58 @@ function slugify(fileBase) {
 }
 
 /**
+ * Normalize a project slug (lowercase kebab). Reject empty / unsafe paths.
+ * @param {string} raw
+ */
+function normalizeProjectSlug(raw) {
+  const slug = slugify(raw.trim());
+  if (!slug) {
+    throw new Error('--project slug is empty after normalization');
+  }
+  if (slug.includes('..') || slug.includes('/') || slug.includes('\\')) {
+    throw new Error(`Invalid --project slug: ${raw}`);
+  }
+  return slug;
+}
+
+/**
  * @param {string} partition
  * @param {string} destRel
  * @param {string | undefined} pipeline
+ * @param {string | null} projectSlug
  */
-function makeAssetId(partition, destRel, pipeline) {
+function makeAssetId(partition, destRel, pipeline, projectSlug) {
   const base = slugify(basename(destRel));
+  let id;
   if (partition === 'originals') {
-    if (destRel.includes('/base/')) return `orig-base-${base}`;
-    if (destRel.includes('/esoteric/')) return `orig-esoteric-${base}`;
-    if (destRel.includes('/scorpions/')) return `orig-scorpions-${base}`;
-    return `orig-${base}`;
-  }
-  if (partition === 'generated') {
+    if (destRel.includes('/base/')) id = `orig-base-${base}`;
+    else if (destRel.includes('/esoteric/')) id = `orig-esoteric-${base}`;
+    else if (destRel.includes('/scorpions/')) id = `orig-scorpions-${base}`;
+    else id = `orig-${base}`;
+  } else if (partition === 'generated') {
     const pipe = pipeline ? slugify(pipeline) : 'push';
-    return `gen-${pipe}-${base}`;
+    id = `gen-${pipe}-${base}`;
+  } else if (destRel.includes('/flash/')) {
+    id = `tat-flash-${base}`;
+  } else if (destRel.includes('/arm-leg/')) {
+    id = `tat-arm-leg-${base}`;
+  } else if (destRel.includes('/arm-shoulder/')) {
+    id = `tat-arm-shoulder-${base}`;
+  } else if (destRel.includes('/body-maps/')) {
+    id = `tat-body-map-${base}`;
+  } else if (destRel.includes('/scorpions/')) {
+    id = `tat-scorp-${base}`;
+  } else if (pipeline) {
+    id = `tat-${slugify(pipeline)}-${base}`;
+  } else {
+    id = `tat-${base}`;
   }
-  if (destRel.includes('/flash/')) return `tat-flash-${base}`;
-  if (destRel.includes('/arm-leg/')) return `tat-arm-leg-${base}`;
-  if (destRel.includes('/arm-shoulder/')) return `tat-arm-shoulder-${base}`;
-  if (destRel.includes('/body-maps/')) return `tat-body-map-${base}`;
-  if (destRel.includes('/scorpions/')) return `tat-scorp-${base}`;
-  if (pipeline) return `tat-${slugify(pipeline)}-${base}`;
-  return `tat-${base}`;
+
+  if (projectSlug) {
+    const prefix = `proj-${projectSlug}-`;
+    return id.startsWith(prefix) ? id : `${prefix}${id}`;
+  }
+  return id;
 }
 
 /**
@@ -222,12 +269,16 @@ function loadManifest(mediaRoot) {
       counts: { originals: 0, tattoos: 0, generated: 0 },
       lineageLinks: 0,
       skipped: [],
+      projects: [],
       assets: [],
     };
   }
   const raw = JSON.parse(readFileSync(path, 'utf8'));
   if (!raw || !Array.isArray(raw.assets)) {
     throw new Error(`Invalid manifest at ${path}`);
+  }
+  if (!Array.isArray(raw.projects)) {
+    raw.projects = [];
   }
   return raw;
 }
@@ -244,14 +295,26 @@ function writeManifest(manifest, assetsMedia, webMedia) {
     generated: manifest.assets.filter((a) => a.partition === 'generated').length,
   };
   const lineageLinks = manifest.assets.filter((a) => a.parentSourceId).length;
+  const projects = Array.isArray(manifest.projects) ? manifest.projects : [];
   const next = {
     ...manifest,
     version: manifest.version ?? 1,
     generatedAt: new Date().toISOString(),
     mediaRoot: 'assets/media',
     webPublicRoot: 'web/public/media',
+    projectSchema: {
+      path: 'projects/<slug>/{originals|tattoos|generated}/…',
+      registry: 'manifest.projects[] — slug, path, partitions, createdAt',
+      assetFields: [
+        'project (slug)',
+        'projectTag (Gallery filter; usually same as project)',
+        'tags include project:<slug>',
+      ],
+      assetIdPrefix: 'proj-<slug>-…',
+    },
     counts,
     lineageLinks,
+    projects,
     assets: manifest.assets,
   };
   const json = `${JSON.stringify(next, null, 2)}\n`;
@@ -260,6 +323,63 @@ function writeManifest(manifest, assetsMedia, webMedia) {
     writeFileSync(join(dir, 'manifest.json'), json);
   }
   return next;
+}
+
+/**
+ * Ensure project directory trees + manifest.projects entry (idempotent).
+ * @param {string} root
+ * @param {string} projectSlug
+ * @param {object} manifest
+ * @param {boolean} dryRun
+ * @returns {{ created: boolean, path: string, project: ProjectSection }}
+ */
+function ensureProjectSection(root, projectSlug, manifest, dryRun) {
+  const relRoot = `projects/${projectSlug}`;
+  const assetsMedia = join(root, 'assets', 'media');
+  const webMedia = join(root, 'web', 'public', 'media');
+  const now = new Date().toISOString();
+
+  /** @type {ProjectSection[]} */
+  const projects = Array.isArray(manifest.projects) ? [...manifest.projects] : [];
+  const existingIdx = projects.findIndex((p) => p && p.slug === projectSlug);
+  const existing = existingIdx >= 0 ? projects[existingIdx] : null;
+
+  if (!dryRun) {
+    for (const base of [assetsMedia, webMedia]) {
+      for (const part of PARTITION_LIST) {
+        mkdirSync(join(base, 'projects', projectSlug, part), { recursive: true });
+      }
+    }
+  }
+
+  /** @type {ProjectSection} */
+  const project = existing
+    ? {
+        ...existing,
+        path: existing.path || relRoot,
+        partitions: PARTITION_LIST.slice(),
+        updatedAt: now,
+      }
+    : {
+        slug: projectSlug,
+        path: relRoot,
+        partitions: PARTITION_LIST.slice(),
+        createdAt: now,
+        updatedAt: now,
+      };
+
+  if (existingIdx >= 0) {
+    projects[existingIdx] = project;
+  } else {
+    projects.push(project);
+  }
+  manifest.projects = projects;
+
+  return {
+    created: !existing,
+    path: relRoot,
+    project,
+  };
 }
 
 /**
@@ -323,6 +443,56 @@ function main() {
   }
 
   const root = resolveRoot();
+  const dryRun = Boolean(args.dryRun);
+  const noIngest = Boolean(args.noIngest);
+  const createSection = Boolean(args.createSection);
+
+  let projectSlug = null;
+  if (typeof args.project === 'string' && args.project.trim()) {
+    try {
+      projectSlug = normalizeProjectSlug(args.project);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  }
+
+  if (createSection && !projectSlug) {
+    console.error('--create-section requires --project <slug>');
+    printUsage(1);
+    return;
+  }
+
+  const assetsMedia = join(root, 'assets', 'media');
+  const webMedia = join(root, 'web', 'public', 'media');
+  const manifest = loadManifest(assetsMedia);
+
+  // --- create-section only -------------------------------------------------
+  if (createSection && !args.file && !args.dir) {
+    console.log(`DAMMWT root: ${root}`);
+    console.log(`Project:     ${projectSlug}${dryRun ? ' (dry-run)' : ''}`);
+    const result = ensureProjectSection(root, projectSlug, manifest, dryRun);
+    if (dryRun) {
+      console.log(
+        `Dry-run: would ${result.created ? 'create' : 'ensure'} ${result.path}/{originals,tattoos,generated}/ (+ web mirror)`,
+      );
+      return;
+    }
+    writeManifest(manifest, assetsMedia, webMedia);
+    console.log(
+      result.created
+        ? `Created project section: ${result.path}/`
+        : `Ensured project section: ${result.path}/ (already registered)`,
+    );
+    console.log(
+      `  assets/media/${result.path}/{originals,tattoos,generated}/`,
+    );
+    console.log(
+      `  web/public/media/${result.path}/{originals,tattoos,generated}/`,
+    );
+    return;
+  }
+
   const partition = typeof args.partition === 'string' ? args.partition : '';
   if (!PARTITIONS.has(partition)) {
     console.error('--partition is required (originals|tattoos|generated)');
@@ -333,7 +503,7 @@ function main() {
   const fileArg = typeof args.file === 'string' ? args.file : null;
   const dirArg = typeof args.dir === 'string' ? args.dir : null;
   if (!fileArg && !dirArg) {
-    console.error('Provide --file or --dir');
+    console.error('Provide --file or --dir (or --create-section --project)');
     printUsage(1);
     return;
   }
@@ -370,8 +540,6 @@ function main() {
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
-  const dryRun = Boolean(args.dryRun);
-  const noIngest = Boolean(args.noIngest);
 
   /** @type {string[]} */
   let sources = [];
@@ -395,27 +563,51 @@ function main() {
     }
   }
 
-  const assetsMedia = join(root, 'assets', 'media');
-  const webMedia = join(root, 'web', 'public', 'media');
-  const manifest = loadManifest(assetsMedia);
+  // Ensure project tree + registry when pushing into a project
+  if (projectSlug) {
+    const ensured = ensureProjectSection(root, projectSlug, manifest, dryRun);
+    if (!dryRun) {
+      console.log(
+        ensured.created
+          ? `Created project section: ${ensured.path}/`
+          : `Using project section: ${ensured.path}/`,
+      );
+    }
+  }
 
   /** @type {Array<{ source: string, destRel: string, assetId: string, mode?: string }>} */
   const planned = [];
 
   for (const source of sources) {
     const name = basename(source);
-    const destRel = pipeline
+    const underPartition = pipeline
       ? join(partition, pipeline, name).replace(/\\/g, '/')
       : join(partition, name).replace(/\\/g, '/');
-    const assetId =
+    const destRel = projectSlug
+      ? `projects/${projectSlug}/${underPartition}`
+      : underPartition;
+    let assetId =
       sources.length === 1 && assetIdOpt
         ? assetIdOpt
-        : makeAssetId(partition, destRel, pipeline ?? undefined);
+        : makeAssetId(partition, destRel, pipeline ?? undefined, projectSlug);
+    if (
+      projectSlug &&
+      sources.length === 1 &&
+      assetIdOpt &&
+      !assetIdOpt.startsWith(`proj-${projectSlug}-`)
+    ) {
+      // Keep explicit ids as-is when caller set them; only auto-ids get prefix.
+      assetId = assetIdOpt;
+    }
     planned.push({ source, destRel, assetId });
   }
 
   console.log(`DAMMWT root: ${root}`);
-  console.log(`Partition:   ${partition}${pipeline ? ` / ${pipeline}` : ''}`);
+  console.log(
+    `Partition:   ${partition}${pipeline ? ` / ${pipeline}` : ''}${
+      projectSlug ? ` (project: ${projectSlug})` : ''
+    }`,
+  );
   console.log(`Files:       ${planned.length}${dryRun ? ' (dry-run)' : ''}`);
 
   for (const item of planned) {
@@ -428,6 +620,15 @@ function main() {
     if (batch && !recordTags.includes(batch)) recordTags.push(batch);
     if (partition === 'originals' && !recordTags.includes('source-of-truth')) {
       recordTags.push('source-of-truth');
+    }
+    if (projectSlug) {
+      const projectTagToken = `project:${projectSlug}`;
+      if (!recordTags.includes(projectTagToken)) {
+        recordTags.push(projectTagToken);
+      }
+      if (!recordTags.includes(projectSlug)) {
+        recordTags.push(projectSlug);
+      }
     }
 
     const parentSourceId = parent;
@@ -449,6 +650,8 @@ function main() {
       derivedFrom: parentSourceId,
       batch,
       report: null,
+      project: projectSlug,
+      projectTag: projectSlug,
       tags: recordTags,
       description: null,
     };
@@ -490,7 +693,9 @@ function main() {
 
   const written = writeManifest(manifest, assetsMedia, webMedia);
   console.log(
-    `Manifest upserted (${written.counts.originals} originals, ${written.counts.tattoos} tattoos, ${written.counts.generated} generated)`,
+    `Manifest upserted (${written.counts.originals} originals, ${written.counts.tattoos} tattoos, ${written.counts.generated} generated${
+      written.projects?.length ? `, ${written.projects.length} project(s)` : ''
+    })`,
   );
 
   if (noIngest) {

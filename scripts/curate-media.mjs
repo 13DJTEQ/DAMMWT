@@ -25,6 +25,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   writeFileSync,
   rmSync,
 } from 'fs';
@@ -705,6 +706,20 @@ function main() {
 
   const withLineage = assets.filter((a) => a.parentSourceId).length;
 
+  // Preserve project sections registered by push:media / dam:section
+  let existingProjects = [];
+  let existingProjectSchema = null;
+  try {
+    const prevPath = join(assetsMedia, 'manifest.json');
+    if (existsSync(prevPath)) {
+      const prev = JSON.parse(readFileSync(prevPath, 'utf8'));
+      if (Array.isArray(prev.projects)) existingProjects = prev.projects;
+      if (prev.projectSchema) existingProjectSchema = prev.projectSchema;
+    }
+  } catch {
+    /* ignore */
+  }
+
   const manifest = {
     version: 1,
     generatedAt: new Date().toISOString(),
@@ -731,9 +746,20 @@ function main() {
       walkToSot: 'follow parentSourceId until null to reach the master original',
       aliases: ['parentId', 'derivedFrom'],
     },
+    projectSchema: existingProjectSchema ?? {
+      path: 'projects/<slug>/{originals|tattoos|generated}/…',
+      registry: 'manifest.projects[] — slug, path, partitions, createdAt',
+      assetFields: [
+        'project (slug)',
+        'projectTag (Gallery filter; usually same as project)',
+        'tags include project:<slug>',
+      ],
+      assetIdPrefix: 'proj-<slug>-…',
+    },
     counts,
     lineageLinks: withLineage,
     skipped,
+    projects: existingProjects,
     assets,
   };
 

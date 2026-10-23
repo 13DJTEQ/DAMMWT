@@ -19,6 +19,10 @@ export interface ManifestAssetRow {
   derivedFrom?: string | null;
   batch?: string | null;
   report?: string | null;
+  /** Project section slug (`projects/<slug>/…` / manifest.projects). */
+  project?: string | null;
+  /** Gallery filter; usually same as `project`. */
+  projectTag?: string | null;
   tags?: string[];
   description?: string | null;
 }
@@ -61,7 +65,7 @@ export function manifestRowToGalleryAsset(
     previewUrl: row.previewUrl,
     localPath,
     cloudUrl: row.cloudUrl?.trim() ? row.cloudUrl.trim() : null,
-    projectTag: row.batch ?? row.partition,
+    projectTag: row.projectTag ?? row.project ?? row.batch ?? row.partition,
     tags: row.tags ?? [row.partition],
     description: row.description ?? null,
     notes: null,
