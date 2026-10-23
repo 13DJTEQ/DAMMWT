@@ -46,6 +46,7 @@ export function ApprovalCard({
 
   useEffect(() => {
     if (!asset) return;
+    if (typeof window === 'undefined') return;
 
     const onKey = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null;
