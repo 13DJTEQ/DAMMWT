@@ -11,24 +11,32 @@ description: >-
 **Canonical personal skill:** `~/.agents/skills/dammwt-push-media/SKILL.md`  
 (also on this machine: `~/.cursor/skills/dammwt-push-media/`)
 
-Agents working **inside this repo** can use the durable CLI directly:
+## Inside this repo
 
 ```bash
-npm run push:media -- --file "/absolute/path.jpg" --pipeline tattoo --batch flash
+npm run push:media -- --file "/absolute/path.jpg" --partition tattoos --pipeline flash
 ```
 
-From a **foreign repo**, set `DAMMWT_ROOT` (default `/Users/administrator/src/DAMMWT`) and run the personal wrapper:
+## From a foreign repo
 
 ```bash
+export DAMMWT_ROOT="${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
 bash ~/.agents/skills/dammwt-push-media/scripts/push-media.sh \
-  --file "/absolute/path.jpg" --pipeline comfy --batch run-42
+  --file "/absolute/path.jpg" \
+  --partition generated \
+  --pipeline comfy \
+  --batch run-42
 ```
 
-After push, for Electron Gallery review:
+## Flags (summary)
+
+`--file` / `--dir` · `--partition` (required) · `--pipeline` · `--parent` · `--batch` · `--cloud-url` · `--title` · `--asset-id` · `--tags` · `--dry-run` · `--no-ingest`
+
+## Electron review
 
 ```bash
 npm run review:electron
-# SEED=1 npm run review:electron   # if schema / file links need re-seed
+# SEED=1 npm run review:electron
 ```
 
-Read the full skill for flag mapping (`--partition`, `--parent`, `--pipeline`, `--batch`, `--cloud-url`) and tattoo / comfy / logo examples.
+Full steps and tattoo / comfy / logo examples: read the personal skill above. CLI SoT: `scripts/push-media.mjs` + `docs/MEDIA-INVENTORY.md`.

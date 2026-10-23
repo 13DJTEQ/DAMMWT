@@ -129,7 +129,7 @@ npm run push:media -- --dir ./exports --partition generated --dry-run
 | `--dry-run` | Plan only |
 | `--no-ingest` | Skip Electron DB seed |
 
-Staging: copy/hardlink → `assets/media/<partition>/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent `ingestAssetIfAbsent`). Set `DAMMWT_ROOT` when the skill’s cwd is not the DAMMWT repo; resolve the script via `npm run push:media --prefix "$DAMMWT_ROOT"`.
+Staging: copy/hardlink → `assets/media/<partition>/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent `ingestAssetIfAbsent`). Set `DAMMWT_ROOT` when the skill’s cwd is not the DAMMWT repo; resolve the script via `npm run push:media --prefix "$DAMMWT_ROOT"` or the Cursor skill wrapper `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. After push, review in Gallery with `npm run review:electron` (use `SEED=1` if links/schema look stale).
 
 ## Refresh from MWTDAM
 
@@ -160,20 +160,6 @@ Then re-seed Electron if needed:
 ```bash
 npm run seed:media
 ```
-
-## Push a single file (any repo)
-
-To stage one or more files from **outside** this checkout (tattoo vault, Comfy output, logo exports):
-
-```bash
-npm run push:media -- --file /absolute/path.jpg --pipeline tattoo --batch flash
-# pipelines: tattoo → tattoos/ | comfy → generated/comfy/ | logo → originals/logos/
-# flags: --partition --parent --batch --cloud-url --title --id --dest --no-seed
-```
-
-From another project, set `DAMMWT_ROOT` and use the Cursor skill wrapper
-`dammwt-push-media` (`~/.agents/skills/dammwt-push-media/`). After push, review with
-`npm run review:electron` (seed runs by default unless `--no-seed`).
 
 ### Full vault vs curated subset
 
