@@ -30,10 +30,22 @@ Week 1 formal Approve naming mapped to **keep**; **love** is a distinct strong-p
 
 `npm run verify` runs Days 1/2/5/6 + Gallery V1 coverage. Optional: `npm run verify:day34`, `npm run verify:gallery`.
 
+## Web Gallery + sync (scaffold)
+
+Additive browser app under `web/` (Vite + React). Same Gallery V1 decisions; pluggable local (`memory` / IndexedDB) and cloud (**Supabase** stub) stores with a pull/push sync client.
+
+```bash
+npm run web:install
+npm run web:dev       # http://localhost:5173
+```
+
+Details: [docs/WEB-SYNC.md](docs/WEB-SYNC.md). Does not replace Electron; `npm run verify` stays the desktop path.
+
 ## Spec / docs
 
 - Project Gallery plan: see Project store `docs/v1-gallery-plan.md` (or legacy `v0.5-gallery-plan.md` until renamed)
 - Day 1 notes: [docs/DAY1-README.md](docs/DAY1-README.md)
+- Web sync scaffold: [docs/WEB-SYNC.md](docs/WEB-SYNC.md)
 
 ## CI
 

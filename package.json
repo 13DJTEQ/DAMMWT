@@ -35,6 +35,11 @@
     "verify:gallery": "npm run build && ts-node --transpile-only --project tsconfig.verify.json scripts/verify-gallery.ts",
     "verify:all": "npm run verify",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json",
+    "web:install": "npm install --prefix web",
+    "web:dev": "npm run dev --prefix web",
+    "web:build": "npm run build --prefix web",
+    "web:preview": "npm run preview --prefix web",
+    "web:typecheck": "npm run typecheck --prefix web",
     "prepublishOnly": "npm run build"
   },
   "files": [
