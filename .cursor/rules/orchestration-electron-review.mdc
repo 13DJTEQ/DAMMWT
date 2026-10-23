@@ -1,0 +1,28 @@
+---
+description: Dave’s DAMMWT workflow — plan first, fan out subagents, rebuild Electron for review
+alwaysApply: true
+---
+
+# DAMMWT agent workflow
+
+## Plan first
+
+For non-trivial work, plan before implementing. If scope or approach is ambiguous, ask 1–2 critical clarifying questions, then proceed.
+
+## Orchestrate + parallel subagents
+
+Default to planning/orchestration. Fan out independent workstreams to multiple parallel subagents (e.g. assets vs web vs Electron vs verify). Do not run long serial solo loops when streams are independent.
+
+## Rebuild Electron after every pass (hard habit)
+
+After each meaningful pass that touches Electron, renderer, media, seed, or IPC:
+
+1. Prefer `npm run review:electron` (rebuilds native ABI, builds, launches, brings window forward on macOS).
+2. Or manually: `npx @electron/rebuild -f -w better-sqlite3` if ABI issues, then `npm start` (or `npm run dev`).
+3. Bring the app window forward when possible so Dave can review immediately.
+
+Do not skip relaunch “until the end” when the pass affected the desktop app.
+
+## Branch context
+
+Review tip often lands on gallery/media feature branches (e.g. `cursor/gallery-file-links-c55d`). Do not assume `main`; check `git branch --show-current` and work on the active review branch.
