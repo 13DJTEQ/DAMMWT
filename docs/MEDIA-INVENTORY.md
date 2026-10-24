@@ -139,7 +139,7 @@ npm run push:media -- --dir ./exports --partition generated --dry-run
 | `--dry-run` | Plan only |
 | `--no-ingest` | Skip Electron DB seed |
 
-Staging: copy/hardlink → `assets/media/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent). Set `DAMMWT_ROOT` when cwd is not DAMMWT; use `npm run push:media --prefix "$DAMMWT_ROOT"` or `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. If Gallery is already open, manifest watch / **Refresh** picks up new rows; otherwise `npm run review:electron` (`SEED=1` if links/schema look stale).
+Staging: copy/hardlink → `assets/media/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent). Set `DAMMWT_ROOT` when cwd is not DAMMWT; use `npm run push:media --prefix "$DAMMWT_ROOT"` or `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. If Gallery is already open, manifest watch / **Refresh** picks up new rows; otherwise `npm run review:electron` (`SEED=1` if links/schema look stale). Seed writes to the app userData DB (`~/Library/Application Support/@13djteq/mwt-dam-mvp/dam.db` on macOS), not the bare `Electron` folder.
 
 ## Project sections (`npm run dam:section`)
 

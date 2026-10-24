@@ -1,9 +1,14 @@
 /**
  * Electron-hosted seed entry (uses Electron's Node ABI for better-sqlite3).
  * Invoked by: npm run seed:media
+ *
+ * Must target the same userData DB as `electron .` / main.ts. Running
+ * `electron scripts/seed-media-electron.js` otherwise defaults userData to
+ * "Electron" and seeds a different dam.db than the Gallery app.
  */
 const { app } = require('electron');
-const { existsSync, mkdirSync } = require('fs');
+const { existsSync, mkdirSync, readFileSync } = require('fs');
+const { homedir } = require('os');
 const { dirname, join } = require('path');
 
 const root = join(__dirname, '..');
@@ -12,6 +17,46 @@ const {
   seedMediaFromManifest,
   resolveMediaRoot,
 } = require(join(root, 'dist', 'media', 'seedMedia'));
+
+function defaultDamDbPath() {
+  if (process.env.DAM_DB_PATH) {
+    return process.env.DAM_DB_PATH;
+  }
+  let pkgName = '@13djteq/mwt-dam-mvp';
+  try {
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    if (pkg && typeof pkg.name === 'string' && pkg.name.trim()) {
+      pkgName = pkg.name.trim();
+    }
+  } catch {
+    /* keep fallback */
+  }
+  const appData =
+    process.platform === 'darwin'
+      ? join(homedir(), 'Library', 'Application Support')
+      : process.env.APPDATA ||
+        join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'));
+  return join(appData, pkgName, 'dam.db');
+}
+
+// Align paths before ready so getPath('userData') matches `electron .`
+try {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  if (pkg?.name) {
+    app.setPath(
+      'userData',
+      join(
+        process.platform === 'darwin'
+          ? join(homedir(), 'Library', 'Application Support')
+          : process.env.APPDATA ||
+              join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config')),
+        pkg.name
+      )
+    );
+  }
+} catch {
+  /* optional */
+}
 
 app.whenReady().then(() => {
   try {
@@ -25,8 +70,7 @@ app.whenReady().then(() => {
       return;
     }
 
-    const dbPath =
-      process.env.DAM_DB_PATH || join(app.getPath('userData'), 'dam.db');
+    const dbPath = defaultDamDbPath();
     mkdirSync(dirname(dbPath), { recursive: true });
 
     const db = new DatabaseManager(dbPath);
