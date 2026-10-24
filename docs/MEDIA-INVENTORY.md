@@ -65,6 +65,7 @@ Exact counts are always in `manifest.json` → `counts` / `lineageLinks`.
 2. `previewUrl` is stored as `file://…/assets/media/<previewPath>`.
 3. `sourceIdentifier` is the absolute filesystem path to the same file.
 4. Resolve media root: `resolveMediaRoot()` → `assets/media` next to the repo (dev) or relative to `dist/`.
+5. **Auto-refresh:** main watches `assets/media/manifest.json`; on change it re-runs idempotent `seedMediaFromManifest` and sends `media:updated`. Gallery also reloads the queue on window focus / visibility and via the **Refresh** control (no full relaunch needed after `push:media`).
 
 ## File links (`localPath` / `cloudUrl`)
 
@@ -138,7 +139,7 @@ npm run push:media -- --dir ./exports --partition generated --dry-run
 | `--dry-run` | Plan only |
 | `--no-ingest` | Skip Electron DB seed |
 
-Staging: copy/hardlink → `assets/media/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent). Set `DAMMWT_ROOT` when cwd is not DAMMWT; use `npm run push:media --prefix "$DAMMWT_ROOT"` or `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. After push: `npm run review:electron` (`SEED=1` if links/schema look stale).
+Staging: copy/hardlink → `assets/media/…` + mirror `web/public/media/`, upsert both `manifest.json` copies, then Electron `seedMediaFromManifest` (idempotent). Set `DAMMWT_ROOT` when cwd is not DAMMWT; use `npm run push:media --prefix "$DAMMWT_ROOT"` or `~/.agents/skills/dammwt-push-media/scripts/push-media.sh`. If Gallery is already open, manifest watch / **Refresh** picks up new rows; otherwise `npm run review:electron` (`SEED=1` if links/schema look stale).
 
 ## Project sections (`npm run dam:section`)
 

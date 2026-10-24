@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApprovalCard, type GalleryDecision } from './components/ApprovalCard';
 import { ReviewQueue } from './components/ReviewQueue';
 import { StatsBar } from './components/StatsBar';
@@ -7,9 +7,11 @@ import {
   ReviewController,
   type ReviewControllerSnapshot,
 } from './ReviewController';
-import type { DamApi } from './damApi';
+import { getDamApi, type DamApi } from './damApi';
 
 const DEFAULT_REVIEWER = 'reviewer@mwt.com';
+/** Debounce focus / visibility reloads so rapid OS events don't thrash IPC. */
+const FOCUS_REFRESH_DEBOUNCE_MS = 400;
 
 export interface AppProps {
   /** Optional injected API (verify). Defaults to getDamApi() / window.damApi. */
@@ -30,6 +32,8 @@ export function App({
   const [snap, setSnap] = useState<ReviewControllerSnapshot>(() =>
     controller.getSnapshot()
   );
+  const [refreshing, setRefreshing] = useState(false);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const unsub = controller.subscribe(setSnap);
@@ -38,6 +42,83 @@ export function App({
     });
     return unsub;
   }, [controller]);
+
+  // Soft refresh when the window is focused / becomes visible (queue reload only).
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const schedule = (): void => {
+      if (focusTimer.current) {
+        clearTimeout(focusTimer.current);
+      }
+      focusTimer.current = setTimeout(() => {
+        focusTimer.current = null;
+        void controller.refresh().catch(() => undefined);
+      }, FOCUS_REFRESH_DEBOUNCE_MS);
+    };
+
+    const onFocus = (): void => {
+      schedule();
+    };
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') {
+        schedule();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (focusTimer.current) {
+        clearTimeout(focusTimer.current);
+        focusTimer.current = null;
+      }
+    };
+  }, [controller]);
+
+  // Main-process watch / Refresh → media:updated → reload queue.
+  useEffect(() => {
+    let apiRef: DamApi;
+    try {
+      apiRef = api ?? getDamApi();
+    } catch {
+      return undefined;
+    }
+    if (!apiRef.onMediaUpdated) {
+      return undefined;
+    }
+    return apiRef.onMediaUpdated(() => {
+      void controller.refresh().catch(() => undefined);
+    });
+  }, [api, controller]);
+
+  const runRefresh = (): void => {
+    void (async () => {
+      setRefreshing(true);
+      try {
+        let apiRef: DamApi | null = api ?? null;
+        if (!apiRef) {
+          try {
+            apiRef = getDamApi();
+          } catch {
+            apiRef = null;
+          }
+        }
+        if (apiRef?.refreshMedia) {
+          await apiRef.refreshMedia();
+        }
+        await controller.refresh();
+      } catch {
+        /* snapshot / banner carry errors */
+      } finally {
+        setRefreshing(false);
+      }
+    })();
+  };
 
   const decide = (decision: GalleryDecision, notes?: string): void => {
     void controller
@@ -83,8 +164,21 @@ export function App({
               draggable={false}
             />
           </div>
-          <p className="brand-name">MWT DAM</p>
-          <h1 className="shell-title">Gallery</h1>
+          <div className="shell-title-row">
+            <div>
+              <p className="brand-name">MWT DAM</p>
+              <h1 className="shell-title">Gallery</h1>
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost shell-refresh"
+              onClick={runRefresh}
+              disabled={refreshing || snap.busy}
+              title="Re-ingest manifest and reload the queue"
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
           <p className="shell-lede">
             Love, keep, or reject assets with steering notes — Gallery V1 on Electron
             + SQLite.

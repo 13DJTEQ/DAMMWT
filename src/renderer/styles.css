@@ -156,12 +156,25 @@ button {
   color: var(--paper);
 }
 
+.shell-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+}
+
 .shell-title {
   margin: 0;
   font-family: var(--font-brand);
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--gold);
+}
+
+.shell-refresh {
+  flex-shrink: 0;
+  margin-top: 0.35rem;
 }
 
 .shell-lede {

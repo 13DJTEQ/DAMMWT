@@ -30,7 +30,17 @@ export const IPC_CHANNELS = [
   'revealInFolder',
   'openLocalPath',
   'openCloudUrl',
+  'refreshMedia',
 ] as const;
+
+/** Push payload for main → renderer `media:updated` (not an invoke channel). */
+export const MEDIA_UPDATED_CHANNEL = 'media:updated' as const;
+
+export interface RefreshMediaResult {
+  inserted: number;
+  skipped: number;
+  total: number;
+}
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -56,6 +66,11 @@ export interface ShellHandlerOptions {
   shell: ShellBridge;
   /** Absolute paths that localPath must resolve under. */
   allowedMediaRoots: readonly string[];
+  /**
+   * Optional: re-seed from assets/media/manifest.json (main-process only).
+   * Used by Gallery Refresh / auto-ingest; better-sqlite3 stays off the renderer.
+   */
+  refreshMedia?: () => RefreshMediaResult | Promise<RefreshMediaResult>;
 }
 
 export interface DamApi {
@@ -76,6 +91,8 @@ export interface DamApi {
   openLocalPath(localPath: string): Promise<ShellActionResult>;
   /** Open cloudUrl in the default browser (http/https only). */
   openCloudUrl(cloudUrl: string): Promise<ShellActionResult>;
+  /** Re-ingest new manifest rows into SQLite (idempotent). */
+  refreshMedia(): Promise<RefreshMediaResult>;
 }
 
 export type InvokeFn = (channel: string, ...args: unknown[]) => Promise<unknown>;
@@ -108,6 +125,7 @@ export function createDamApi(invoke: InvokeFn): DamApi {
       invoke('openLocalPath', localPath) as Promise<ShellActionResult>,
     openCloudUrl: (cloudUrl) =>
       invoke('openCloudUrl', cloudUrl) as Promise<ShellActionResult>,
+    refreshMedia: () => invoke('refreshMedia') as Promise<RefreshMediaResult>,
   };
 }
 
@@ -185,6 +203,18 @@ export function registerIpcHandlers(
       return SHELL_UNAVAILABLE;
     }
     return safeOpenExternal(shellOptions.shell, cloudUrl as string);
+  });
+
+  ipcMain.handle('refreshMedia', async () => {
+    if (!shellOptions?.refreshMedia) {
+      const empty: RefreshMediaResult = {
+        inserted: 0,
+        skipped: 0,
+        total: 0,
+      };
+      return empty;
+    }
+    return shellOptions.refreshMedia();
   });
 
   return IPC_CHANNELS;

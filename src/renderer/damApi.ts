@@ -24,6 +24,12 @@ export type {
 };
 export type { ShellActionResult };
 
+export interface RefreshMediaResult {
+  inserted: number;
+  skipped: number;
+  total: number;
+}
+
 /** Renderer-facing API — always async so IPC and in-memory mocks share one shape. */
 export interface DamApi {
   ingestAsset(input: IngestAssetInput): Promise<ReviewQueueRow>;
@@ -39,6 +45,10 @@ export interface DamApi {
   revealInFolder?(localPath: string): Promise<ShellActionResult>;
   openLocalPath?(localPath: string): Promise<ShellActionResult>;
   openCloudUrl?(cloudUrl: string): Promise<ShellActionResult>;
+  /** Main-process re-seed from manifest (optional — Electron only). */
+  refreshMedia?(): Promise<RefreshMediaResult>;
+  /** Subscribe to `media:updated` from main (optional — Electron only). */
+  onMediaUpdated?(callback: () => void): () => void;
 }
 
 declare global {

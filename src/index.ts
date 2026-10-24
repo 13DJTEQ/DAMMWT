@@ -34,6 +34,7 @@ export {
 } from './media/seedMedia';
 export {
   IPC_CHANNELS,
+  MEDIA_UPDATED_CHANNEL,
   createDamApi,
   registerIpcHandlers,
   type DamApi,
@@ -41,6 +42,7 @@ export {
   type IpcChannel,
   type IpcMainLike,
   type InvokeFn,
+  type RefreshMediaResult,
   type ShellHandlerOptions,
 } from './ipc/handlers';
 export {
