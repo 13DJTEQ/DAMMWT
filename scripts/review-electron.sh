@@ -20,7 +20,8 @@ if [[ "${SEED:-}" == "1" ]]; then
 fi
 
 echo "==> Build + start Electron"
-npm start &
+# Pass SEED through so main-process launch seed logs SEED=1 clearly when used.
+SEED="${SEED:-}" npm start &
 APP_PID=$!
 
 # Give the window a moment to appear, then bring frontmost (macOS).

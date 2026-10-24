@@ -31,7 +31,7 @@ SEED=1 npm run review:electron
 # Or separately: npm run seed:media
 ```
 
-`review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**). While the app is open, new `push:media` / manifest changes auto-ingest (manifest watch → seed → Gallery refresh); focus the window or click **Refresh** if needed.
+`review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**). Every launch idempotently ingests new manifest rows (including `projects/<slug>/…`). While the app is open, `push:media` / manifest changes also auto-ingest (watch → seed → Gallery refresh); focus the window or click **Refresh** if needed. Project sections from `dam:section` appear under **Projects** even before assets are pushed.
 
 ## Gallery V1
 

@@ -119,67 +119,79 @@ export function ReviewQueue({
             </button>
           ))}
         </div>
-        {availableProjects.length > 0 ? (
-          useProjectSelect ? (
-            <div className="filter-row filter-row--project">
-              <label className="filter-select-label" htmlFor="project-filter">
-                Project
-              </label>
-              <select
-                id="project-filter"
-                className="filter-select"
+        <div className="filter-row filter-row--project-nav">
+          <span className="filter-section-label" id="projects-nav-label">
+            Projects
+          </span>
+          {availableProjects.length > 0 ? (
+            useProjectSelect ? (
+              <div className="filter-row filter-row--project">
+                <label className="filter-select-label" htmlFor="project-filter">
+                  Section
+                </label>
+                <select
+                  id="project-filter"
+                  className="filter-select"
+                  aria-labelledby="projects-nav-label"
+                  aria-label="Filter by project"
+                  value={projectFilter}
+                  onChange={(e) =>
+                    onProjectChange(e.target.value as ProjectFilter)
+                  }
+                >
+                  <option value="all">All projects</option>
+                  {availableProjects.map((slug) => (
+                    <option key={slug} value={slug}>
+                      {slug}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div
+                className="filter-row"
+                role="tablist"
+                aria-labelledby="projects-nav-label"
                 aria-label="Filter by project"
-                value={projectFilter}
-                onChange={(e) =>
-                  onProjectChange(e.target.value as ProjectFilter)
-                }
               >
-                <option value="all">All projects</option>
-                {availableProjects.map((slug) => (
-                  <option key={slug} value={slug}>
-                    {slug}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div
-              className="filter-row"
-              role="tablist"
-              aria-label="Filter by project"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={projectFilter === 'all'}
-                className={
-                  projectFilter === 'all'
-                    ? 'filter-btn filter-btn--project filter-btn--active'
-                    : 'filter-btn filter-btn--project'
-                }
-                onClick={() => onProjectChange('all')}
-              >
-                All projects
-              </button>
-              {availableProjects.map((slug) => (
                 <button
-                  key={slug}
                   type="button"
                   role="tab"
-                  aria-selected={projectFilter === slug}
+                  aria-selected={projectFilter === 'all'}
                   className={
-                    projectFilter === slug
+                    projectFilter === 'all'
                       ? 'filter-btn filter-btn--project filter-btn--active'
                       : 'filter-btn filter-btn--project'
                   }
-                  onClick={() => onProjectChange(slug)}
+                  onClick={() => onProjectChange('all')}
                 >
-                  {slug}
+                  All projects
                 </button>
-              ))}
-            </div>
-          )
-        ) : null}
+                {availableProjects.map((slug) => (
+                  <button
+                    key={slug}
+                    type="button"
+                    role="tab"
+                    aria-selected={projectFilter === slug}
+                    className={
+                      projectFilter === slug
+                        ? 'filter-btn filter-btn--project filter-btn--active'
+                        : 'filter-btn filter-btn--project'
+                    }
+                    onClick={() => onProjectChange(slug)}
+                  >
+                    {slug}
+                  </button>
+                ))}
+              </div>
+            )
+          ) : (
+            <p className="filter-hint">
+              No project sections yet —{' '}
+              <code>npm run dam:section -- --project &lt;slug&gt;</code>
+            </p>
+          )}
+        </div>
         <div className="filter-row" role="tablist" aria-label="Filter by decision">
           {FILTERS.map(({ value, label }) => (
             <button
@@ -204,8 +216,22 @@ export function ReviewQueue({
 
       {loadState === 'ready' && queue.length === 0 ? (
         <p className="panel-state panel-state--empty">
-          No assets match this filter. Run <code>npm run seed:media</code> or
-          switch partition / status.
+          {projectFilter !== 'all' ? (
+            <>
+              No assets in project <code>{projectFilter}</code> for this filter.
+              Push with{' '}
+              <code>
+                npm run push:media -- --project {projectFilter} --file …
+              </code>{' '}
+              or switch status to All, then click Refresh.
+            </>
+          ) : (
+            <>
+              No assets match this filter. Run <code>npm run seed:media</code>{' '}
+              (or <code>SEED=1 npm run review:electron</code>) or switch
+              partition / status.
+            </>
+          )}
         </p>
       ) : null}
 

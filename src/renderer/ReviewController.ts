@@ -31,7 +31,10 @@ export interface ReviewControllerSnapshot {
   filter: QueueFilter;
   partitionFilter: PartitionFilter;
   projectFilter: ProjectFilter;
-  /** Known project slugs from catalog (path projects/<slug>/ or projectTag). */
+  /**
+   * Project slugs from manifest.projects[] plus any discovered in the catalog.
+   * Empty registered sections still appear so dam:section is visible before push.
+   */
   availableProjects: string[];
   queue: ReviewQueueRow[];
   /** Unfiltered catalog for lineage lookups (parent Source of Truth). */
@@ -60,11 +63,13 @@ export class ReviewController {
   private api: DamApi;
   private loadState: LoadState = 'idle';
   private error: string | null = null;
-  private filter: QueueFilter = 'pending';
+  /** Default `all` so newly pushed / already-reviewed assets are not hidden. */
+  private filter: QueueFilter = 'all';
   private partitionFilter: PartitionFilter = 'all';
   private projectFilter: ProjectFilter = 'all';
   private catalog: ReviewQueueRow[] = [];
   private queue: ReviewQueueRow[] = [];
+  private registeredProjects: string[] = [];
   private stats: QueueStats | null = null;
   private selectedAssetId: string | null = null;
   private history: ApprovalHistoryRow[] = [];
@@ -100,7 +105,10 @@ export class ReviewController {
       filter: this.filter,
       partitionFilter: this.partitionFilter,
       projectFilter: this.projectFilter,
-      availableProjects: collectProjectSlugs(this.catalog),
+      availableProjects: collectProjectSlugs(
+        this.catalog,
+        this.registeredProjects
+      ),
       queue: this.queue,
       catalog: this.catalog,
       stats: this.stats,
@@ -125,6 +133,10 @@ export class ReviewController {
 
   setProjectFilter(projectFilter: ProjectFilter): Promise<void> {
     this.projectFilter = projectFilter;
+    // Project nav should show every status in that section by default.
+    if (projectFilter !== 'all' && this.filter === 'pending') {
+      this.filter = 'all';
+    }
     return this.refresh();
   }
 
@@ -162,12 +174,19 @@ export class ReviewController {
     this.emit();
 
     try {
-      const [catalog, stats] = await Promise.all([
+      const projectsPromise = this.api.getMediaProjects
+        ? this.api.getMediaProjects()
+        : Promise.resolve([] as string[]);
+      const [catalog, stats, registered] = await Promise.all([
         this.api.getReviewQueue(),
         this.api.getQueueStats(),
+        projectsPromise,
       ]);
       this.catalog = catalog;
       this.stats = stats;
+      this.registeredProjects = Array.isArray(registered)
+        ? registered.filter((s) => typeof s === 'string' && s.trim())
+        : [];
       this.queue = this.applyFilters(catalog);
 
       if (
@@ -273,6 +292,7 @@ export class ReviewController {
   }
 
   private applyFilters(rows: ReviewQueueRow[]): ReviewQueueRow[] {
+    const known = this.registeredProjects;
     return rows.filter((row) => {
       const statusOk = this.filter === 'all' || row.status === this.filter;
       const partitionOk =
@@ -280,7 +300,7 @@ export class ReviewController {
         row.partition === this.partitionFilter;
       const projectOk =
         this.projectFilter === 'all' ||
-        resolveProjectSlug(row) === this.projectFilter;
+        resolveProjectSlug(row, known) === this.projectFilter;
       return statusOk && partitionOk && projectOk;
     });
   }

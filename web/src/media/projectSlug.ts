@@ -44,17 +44,21 @@ function projectSlugFromTags(
 
 /**
  * Prefer path `projects/<slug>/`, then `project:<slug>` tag, then manifest
- * `project` field. Bare legacy projectTag (batch) is ignored.
+ * `project` field. Bare legacy projectTag (batch / partition) is ignored
+ * unless it matches a registered manifest project slug.
  */
-export function resolveProjectSlug(asset: {
-  projectTag?: string | null;
-  project?: string | null;
-  tags?: string[] | string | null;
-  localPath?: string | null;
-  previewPath?: string | null;
-  previewUrl?: string | null;
-  sourceIdentifier?: string | null;
-}): string | null {
+export function resolveProjectSlug(
+  asset: {
+    projectTag?: string | null;
+    project?: string | null;
+    tags?: string[] | string | null;
+    localPath?: string | null;
+    previewPath?: string | null;
+    previewUrl?: string | null;
+    sourceIdentifier?: string | null;
+  },
+  knownProjects?: Iterable<string> | null
+): string | null {
   const fromPath =
     projectSlugFromPath(asset.localPath) ||
     projectSlugFromPath(asset.previewPath) ||
@@ -67,6 +71,13 @@ export function resolveProjectSlug(asset: {
 
   const project = asset.project?.trim();
   if (project && !MEDIA_PARTITIONS.has(project)) return project;
+
+  const known =
+    knownProjects != null ? new Set([...knownProjects]) : null;
+  const tag = asset.projectTag?.trim();
+  if (tag && !MEDIA_PARTITIONS.has(tag) && known?.has(tag)) {
+    return tag;
+  }
 
   return null;
 }
@@ -81,11 +92,18 @@ export function collectProjectSlugs(
     previewPath?: string | null;
     previewUrl?: string | null;
     sourceIdentifier?: string | null;
-  }>
+  }>,
+  registeredProjects?: Iterable<string> | null
 ): string[] {
   const set = new Set<string>();
+  if (registeredProjects) {
+    for (const slug of registeredProjects) {
+      const s = typeof slug === 'string' ? slug.trim() : '';
+      if (s) set.add(s);
+    }
+  }
   for (const asset of assets) {
-    const slug = resolveProjectSlug(asset);
+    const slug = resolveProjectSlug(asset, set);
     if (slug) set.add(slug);
   }
   return [...set].sort((a, b) => a.localeCompare(b));

@@ -8,3 +8,4 @@ Canonical store for Tattoo Design graphics and Source-of-Truth originals.
 - **Docs:** [`docs/MEDIA-INVENTORY.md`](../../docs/MEDIA-INVENTORY.md)
 - **Refresh:** `npm run curate:media`
 - **Sections:** `npm run dam:section -- --project <slug>` then `npm run push:media -- … --project <slug>`
+- **Demo:** `projects/gallery-demo-oct/` — appears in Electron Gallery → Projects

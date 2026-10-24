@@ -14,6 +14,10 @@ import {
   type MediaPartition,
   type SubmitDecision,
 } from './domain/gallery';
+import {
+  fetchMediaManifest,
+  projectSlugsFromManifest,
+} from './media/manifest';
 import { collectProjectSlugs } from './media/projectSlug';
 import { createGalleryStore } from './storage/createStore';
 import type { GalleryStore } from './storage/GalleryStore';
@@ -61,13 +65,14 @@ export function App(): JSX.Element {
   const [booting, setBooting] = useState(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatusSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registeredProjects, setRegisteredProjects] = useState<string[]>([]);
 
   const selected = assets.find((a) => a.assetId === selectedId) ?? null;
   const stats = computeStats(assets);
 
   const availableProjects = useMemo(
-    () => collectProjectSlugs(assets),
-    [assets],
+    () => collectProjectSlugs(assets, registeredProjects),
+    [assets, registeredProjects],
   );
 
   const availableSections = useMemo(() => {
@@ -92,12 +97,16 @@ export function App(): JSX.Element {
       try {
         const nextStore = await createGalleryStore();
         const nextSync = createSyncClient(nextStore);
-        const rows = await nextStore.list();
+        const [rows, manifest] = await Promise.all([
+          nextStore.list(),
+          fetchMediaManifest(),
+        ]);
         if (cancelled) return;
         setStore(nextStore);
         setSyncClient(nextSync);
         setSyncStatus(nextSync.getStatus());
         setAssets(rows);
+        setRegisteredProjects(projectSlugsFromManifest(manifest));
         const defaultSection = pickDefaultSection(rows);
         setSection(defaultSection);
         const inSection =

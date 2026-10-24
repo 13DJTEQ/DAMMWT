@@ -31,6 +31,7 @@ export const IPC_CHANNELS = [
   'openLocalPath',
   'openCloudUrl',
   'refreshMedia',
+  'getMediaProjects',
 ] as const;
 
 /** Push payload for main → renderer `media:updated` (not an invoke channel). */
@@ -71,6 +72,10 @@ export interface ShellHandlerOptions {
    * Used by Gallery Refresh / auto-ingest; better-sqlite3 stays off the renderer.
    */
   refreshMedia?: () => RefreshMediaResult | Promise<RefreshMediaResult>;
+  /**
+   * Optional: project section slugs from manifest.projects[] (incl. empty).
+   */
+  getMediaProjects?: () => string[] | Promise<string[]>;
 }
 
 export interface DamApi {
@@ -93,6 +98,8 @@ export interface DamApi {
   openCloudUrl(cloudUrl: string): Promise<ShellActionResult>;
   /** Re-ingest new manifest rows into SQLite (idempotent). */
   refreshMedia(): Promise<RefreshMediaResult>;
+  /** Registered project section slugs (manifest.projects[] + may be empty). */
+  getMediaProjects(): Promise<string[]>;
 }
 
 export type InvokeFn = (channel: string, ...args: unknown[]) => Promise<unknown>;
@@ -126,6 +133,7 @@ export function createDamApi(invoke: InvokeFn): DamApi {
     openCloudUrl: (cloudUrl) =>
       invoke('openCloudUrl', cloudUrl) as Promise<ShellActionResult>,
     refreshMedia: () => invoke('refreshMedia') as Promise<RefreshMediaResult>,
+    getMediaProjects: () => invoke('getMediaProjects') as Promise<string[]>,
   };
 }
 
@@ -215,6 +223,13 @@ export function registerIpcHandlers(
       return empty;
     }
     return shellOptions.refreshMedia();
+  });
+
+  ipcMain.handle('getMediaProjects', async () => {
+    if (!shellOptions?.getMediaProjects) {
+      return [] as string[];
+    }
+    return shellOptions.getMediaProjects();
   });
 
   return IPC_CHANNELS;

@@ -7,6 +7,7 @@ import {
   registerIpcHandlers,
 } from './ipc/handlers';
 import {
+  listMediaProjectSlugs,
   resolveMediaRoot,
   seedMediaFromManifest,
   type SeedMediaResult,
@@ -17,8 +18,9 @@ import {
  * Boots SQLite under userData, registers IPC, then loads the Gallery UI.
  * No HTTP server — renderer talks only through preload → ipcMain.
  *
- * On first launch (empty ReviewQueue), seeds tattoo-design media from
- * assets/media/manifest.json with file:// preview URLs (allowed by CSP).
+ * On every launch, idempotently seeds new manifest rows (including project
+ * sections) so push:media assets appear even when the queue is non-empty.
+ * SEED=1 forces a seed pass (same as npm run seed:media before review).
  *
  * Watches the media manifest so push:media / curate can ingest without relaunch;
  * notifies renderers via `media:updated`.
@@ -71,23 +73,32 @@ function createWindow(): BrowserWindow {
 }
 
 function maybeSeedMedia(database: DatabaseManager): void {
-  if (!database.isEmpty()) {
-    return;
-  }
+  // Always idempotent-ingest: a non-empty DB previously skipped new push:media
+  // rows until Refresh. SEED=1 is honored for ops clarity (same seed path).
+  const forceSeed = process.env.SEED === '1';
   try {
-    const result = seedMediaFromManifest(database, { forceEmptyOnly: true });
+    const result = seedMediaFromManifest(database);
     if (result.inserted > 0) {
       console.log(
-        `[media] First-launch seed: ${result.inserted} assets from ${result.mediaRoot}`
+        `[media] Launch seed: ${result.inserted} new asset(s) from ${result.mediaRoot}` +
+          (forceSeed ? ' (SEED=1)' : '')
+      );
+    } else if (forceSeed) {
+      console.log(
+        `[media] SEED=1: manifest already ingested (${result.total} assets, ${result.skipped} skipped)`
       );
     } else if (result.missingFiles.length) {
       console.warn(
         `[media] Seed skipped missing files: ${result.missingFiles.length}`
       );
     }
+    const projects = listMediaProjectSlugs(result.mediaRoot);
+    if (projects.length) {
+      console.log(`[media] Project sections: ${projects.join(', ')}`);
+    }
   } catch (err) {
     console.warn(
-      '[media] First-launch seed skipped:',
+      '[media] Launch seed skipped:',
       err instanceof Error ? err.message : err
     );
   }
@@ -157,7 +168,9 @@ function scheduleWatchReseed(): void {
 function startMediaManifestWatcher(): void {
   const mediaRoot = resolveMediaRoot();
   if (!mediaRoot) {
-    console.warn('[media] No assets/media root — skipping manifest watch');
+    console.warn(
+      `[media] No assets/media root (cwd=${process.cwd()}) — skipping manifest watch`
+    );
     return;
   }
 
@@ -180,7 +193,9 @@ function startMediaManifestWatcher(): void {
     mediaWatcher.on('error', (err) => {
       console.warn('[media] Watch error:', err.message);
     });
-    console.log(`[media] Watching ${manifestPath} for auto-ingest`);
+    console.log(
+      `[media] Watching ${manifestPath} for auto-ingest (cwd=${process.cwd()})`
+    );
   } catch (err) {
     console.warn(
       '[media] Could not watch manifest:',
@@ -220,6 +235,7 @@ async function bootstrap(): Promise<void> {
         total: result?.total ?? 0,
       };
     },
+    getMediaProjects: () => listMediaProjectSlugs(),
   });
   startMediaManifestWatcher();
   createWindow();

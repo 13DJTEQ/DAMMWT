@@ -47,6 +47,8 @@ export interface DamApi {
   openCloudUrl?(cloudUrl: string): Promise<ShellActionResult>;
   /** Main-process re-seed from manifest (optional — Electron only). */
   refreshMedia?(): Promise<RefreshMediaResult>;
+  /** Registered project slugs from manifest.projects[] (optional — Electron). */
+  getMediaProjects?(): Promise<string[]>;
   /** Subscribe to `media:updated` from main (optional — Electron only). */
   onMediaUpdated?(callback: () => void): () => void;
 }

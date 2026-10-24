@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-23T03:54:26.417Z",
+  "generatedAt": "2026-10-24T00:50:54.055Z",
   "sourceRootHint": "MWTDAM/tattoo-designs/tattoo (override with MWTDAM_TATTOO_ROOT)",
   "mediaRoot": "assets/media",
   "webPublicRoot": "web/public/media",
@@ -24,7 +24,7 @@
   },
   "counts": {
     "originals": 17,
-    "tattoos": 43,
+    "tattoos": 45,
     "generated": 0
   },
   "lineageLinks": 36,
@@ -1353,6 +1353,75 @@
         "style"
       ],
       "description": null
+    },
+    {
+      "id": "proj-gallery-demo-oct-tat-01-forearm-compass-eye-blackwork",
+      "assetId": "proj-gallery-demo-oct-tat-01-forearm-compass-eye-blackwork",
+      "title": "Demo compass eye",
+      "partition": "tattoos",
+      "previewPath": "projects/gallery-demo-oct/tattoos/01-forearm-compass-eye-blackwork.jpg",
+      "previewUrl": "/media/projects/gallery-demo-oct/tattoos/01-forearm-compass-eye-blackwork.jpg",
+      "localPath": "assets/media/projects/gallery-demo-oct/tattoos/01-forearm-compass-eye-blackwork.jpg",
+      "cloudUrl": null,
+      "sourcePath": "assets/media/tattoos/arm-leg/01-forearm-compass-eye-blackwork.jpg",
+      "parentSourceId": null,
+      "parentId": null,
+      "derivedFrom": null,
+      "batch": null,
+      "report": null,
+      "project": "gallery-demo-oct",
+      "projectTag": "gallery-demo-oct",
+      "tags": [
+        "project:gallery-demo-oct",
+        "gallery-demo-oct"
+      ],
+      "description": null
+    },
+    {
+      "id": "proj-gallery-demo-oct-tat-14-shoulder-cap-dragon",
+      "assetId": "proj-gallery-demo-oct-tat-14-shoulder-cap-dragon",
+      "title": "Demo dragon cap",
+      "partition": "tattoos",
+      "previewPath": "projects/gallery-demo-oct/tattoos/14-shoulder-cap-dragon.jpg",
+      "previewUrl": "/media/projects/gallery-demo-oct/tattoos/14-shoulder-cap-dragon.jpg",
+      "localPath": "assets/media/projects/gallery-demo-oct/tattoos/14-shoulder-cap-dragon.jpg",
+      "cloudUrl": null,
+      "sourcePath": "assets/media/tattoos/arm-shoulder/14-shoulder-cap-dragon.jpg",
+      "parentSourceId": null,
+      "parentId": null,
+      "derivedFrom": null,
+      "batch": null,
+      "report": null,
+      "project": "gallery-demo-oct",
+      "projectTag": "gallery-demo-oct",
+      "tags": [
+        "project:gallery-demo-oct",
+        "gallery-demo-oct"
+      ],
+      "description": null
     }
-  ]
+  ],
+  "projects": [
+    {
+      "slug": "gallery-demo-oct",
+      "path": "projects/gallery-demo-oct",
+      "partitions": [
+        "originals",
+        "tattoos",
+        "generated"
+      ],
+      "createdAt": "2026-10-24T00:50:53.520Z",
+      "updatedAt": "2026-10-24T00:50:54.048Z"
+    }
+  ],
+  "projectSchema": {
+    "path": "projects/<slug>/{originals|tattoos|generated}/…",
+    "registry": "manifest.projects[] — slug, path, partitions, createdAt",
+    "assetFields": [
+      "project (slug)",
+      "projectTag (Gallery filter; usually same as project)",
+      "tags include project:<slug>"
+    ],
+    "assetIdPrefix": "proj-<slug>-…"
+  }
 }

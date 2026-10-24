@@ -1,6 +1,6 @@
 /**
  * Ingest tattoo-design manifest assets into ReviewQueue with local file:// previews.
- * Used on first Electron launch and by `npm run seed:media`.
+ * Used on Electron launch, Refresh / manifest watch, and `npm run seed:media`.
  */
 import { existsSync, readFileSync } from 'fs';
 import { dirname, isAbsolute, join } from 'path';
@@ -36,12 +36,22 @@ export interface ManifestAsset {
   description?: string | null;
 }
 
+/** Registry entry from `manifest.projects[]` (may have zero assets yet). */
+export interface MediaProject {
+  slug: string;
+  path?: string;
+  partitions?: string[];
+  createdAt?: string;
+}
+
 export interface MediaManifest {
   version: number;
   generatedAt?: string;
   counts?: Partial<Record<MediaPartition, number>>;
   lineageLinks?: number;
   assets: ManifestAsset[];
+  /** Project sections from dam:section / push:media --project. */
+  projects?: MediaProject[];
 }
 
 export interface SeedMediaResult {
@@ -60,15 +70,25 @@ const PARTITIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Resolve assets/media next to the repo root (dev) or beside dist/.
+ * Resolve assets/media for watch / seed.
+ * Prefer paths relative to this module (dist/media → repo/assets/media) so a
+ * wrong process.cwd() (packaged launch, IDE run config) cannot miss the tree.
  */
 export function resolveMediaRoot(cwd: string = process.cwd()): string | null {
+  const moduleRepoRoot = join(__dirname, '..', '..');
   const candidates = [
-    join(cwd, 'assets', 'media'),
+    // dist/media/seedMedia.js → <repo>/assets/media
+    join(moduleRepoRoot, 'assets', 'media'),
     join(dirname(__dirname), '..', 'assets', 'media'),
-    join(__dirname, '..', '..', 'assets', 'media'),
+    join(cwd, 'assets', 'media'),
+    // Extra fallbacks when cwd is dist/ or scripts/
+    join(cwd, '..', 'assets', 'media'),
+    join(cwd, '..', '..', 'assets', 'media'),
   ];
+  const seen = new Set<string>();
   for (const candidate of candidates) {
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
     if (existsSync(join(candidate, 'manifest.json'))) {
       return candidate;
     }
@@ -82,7 +102,43 @@ export function loadMediaManifest(mediaRoot: string): MediaManifest {
   if (!raw || !Array.isArray(raw.assets)) {
     throw new Error(`Invalid media manifest at ${manifestPath}`);
   }
+  if (!Array.isArray(raw.projects)) {
+    raw.projects = [];
+  }
   return raw;
+}
+
+/**
+ * Project section slugs registered in manifest.projects[] (including empty).
+ */
+export function listMediaProjects(
+  mediaRoot?: string | null
+): MediaProject[] {
+  const root = mediaRoot ?? resolveMediaRoot();
+  if (!root) return [];
+  try {
+    const manifest = loadMediaManifest(root);
+    const projects = Array.isArray(manifest.projects) ? manifest.projects : [];
+    return projects
+      .filter(
+        (p): p is MediaProject =>
+          !!p && typeof p.slug === 'string' && p.slug.trim().length > 0
+      )
+      .map((p) => ({
+        slug: p.slug.trim(),
+        path: p.path,
+        partitions: p.partitions,
+        createdAt: p.createdAt,
+      }))
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+  } catch {
+    return [];
+  }
+}
+
+/** Sorted unique slugs from manifest.projects[]. */
+export function listMediaProjectSlugs(mediaRoot?: string | null): string[] {
+  return listMediaProjects(mediaRoot).map((p) => p.slug);
 }
 
 function previewFileUrl(mediaRoot: string, previewPath: string): string {

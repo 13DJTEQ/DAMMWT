@@ -28,7 +28,10 @@ export {
   seedMediaFromManifest,
   resolveMediaRoot,
   loadMediaManifest,
+  listMediaProjects,
+  listMediaProjectSlugs,
   type MediaManifest,
+  type MediaProject,
   type ManifestAsset,
   type SeedMediaResult,
 } from './media/seedMedia';

@@ -27,12 +27,21 @@ export interface ManifestAssetRow {
   description?: string | null;
 }
 
+export interface MediaProjectRow {
+  slug: string;
+  path?: string;
+  partitions?: string[];
+  createdAt?: string;
+}
+
 export interface MediaManifest {
   version?: number | string;
   generatedAt?: string;
   counts?: Partial<Record<MediaPartition, number>>;
   lineageLinks?: number;
   assets: ManifestAssetRow[];
+  /** Project sections from dam:section / push:media --project. */
+  projects?: MediaProjectRow[];
 }
 
 const MANIFEST_CANDIDATES = [
@@ -88,7 +97,12 @@ export async function fetchMediaManifest(): Promise<MediaManifest | null> {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = (await res.json()) as MediaManifest;
-      if (Array.isArray(data.assets) && data.assets.length > 0) {
+      const hasAssets = Array.isArray(data.assets) && data.assets.length > 0;
+      const hasProjects =
+        Array.isArray(data.projects) && data.projects.length > 0;
+      if (hasAssets || hasProjects) {
+        if (!Array.isArray(data.projects)) data.projects = [];
+        if (!Array.isArray(data.assets)) data.assets = [];
         return data;
       }
     } catch {
@@ -96,6 +110,17 @@ export async function fetchMediaManifest(): Promise<MediaManifest | null> {
     }
   }
   return null;
+}
+
+/** Slugs from manifest.projects[] (empty sections included). */
+export function projectSlugsFromManifest(
+  manifest: MediaManifest | null | undefined
+): string[] {
+  if (!manifest || !Array.isArray(manifest.projects)) return [];
+  return manifest.projects
+    .map((p) => (p && typeof p.slug === 'string' ? p.slug.trim() : ''))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 export async function loadManifestSeed(

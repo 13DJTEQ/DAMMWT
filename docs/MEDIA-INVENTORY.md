@@ -151,6 +151,11 @@ npm run dam:section -- --project my-client
 npm run push:media -- --create-section --project my-client
 ```
 
+**Demo section (committed for Gallery review):** `gallery-demo-oct` under
+`assets/media/projects/gallery-demo-oct/tattoos/` (two sample tattoos). In Electron,
+open **Projects → gallery-demo-oct** (status **All**). If missing from the queue,
+click **Refresh** or run `SEED=1 npm run review:electron`.
+
 Creates:
 
 ```
@@ -171,7 +176,7 @@ npm run push:media -- --file /abs/out.png --partition generated \
 # → projectTag / tags: my-client, project:my-client
 ```
 
-`curate:media` preserves existing `manifest.projects` / `projectSchema` when rewriting the curated catalog. Gallery UI filter by project may land separately; Electron stores `projectTag` on ingest.
+`curate:media` preserves existing `manifest.projects` / `projectSchema` when rewriting the curated catalog. Electron Gallery shows a **Projects** nav from `manifest.projects[]` (including empty sections) plus any project-tagged assets; filter defaults to status **All** so new pushes are not hidden behind Pending. Launch / Refresh / manifest watch all idempotently ingest new rows — use `SEED=1 npm run review:electron` if the SQLite DB looks stale.
 
 ## Refresh from MWTDAM
 
