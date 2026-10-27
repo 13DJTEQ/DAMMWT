@@ -33,9 +33,13 @@ SEED=1 npm run review:electron
 
 `review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**). Every launch idempotently ingests new manifest rows (including `projects/<slug>/…`). While the app is open, `push:media` / manifest changes also auto-ingest (watch → seed → Gallery refresh); focus the window or click **Refresh** if needed. Project sections from `dam:section` appear under **Projects** even before assets are pushed.
 
-## Localhost DAM API (agents / harness)
+## Localhost DAM API (harness-agnostic)
 
-With Electron running, main also serves a **loopback-only** HTTP API on `127.0.0.1:7842` (shared `DamService` + SQLite — same process as IPC). Design: [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md).
+With Electron running, main serves a **loopback-only** HTTP API on `127.0.0.1:7842` (shared `DamService` + SQLite — same process as IPC). **HTTP is the universal contract** for Claude, Cursor, Grok, Hermes, Comfy, and scripts; MCP/CLI are optional adapters.
+
+- Connect any agent: [docs/HARNESS-CONNECTIVITY.md](docs/HARNESS-CONNECTIVITY.md)
+- OpenAPI 3: [docs/openapi-dam-api.yaml](docs/openapi-dam-api.yaml)
+- Architecture: [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md)
 
 ```bash
 # Token file (created on first launch; mode 0600):
@@ -51,7 +55,8 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   -d '{"assetId":"EXAMPLE","decision":"love","reviewedBy":"dave","notes":"hero"}' \
   http://127.0.0.1:7842/v1/approvals | jq .
 
-# Thin CLI (same HTTP contract):
+# Smoke script / thin CLI (same HTTP contract):
+bash scripts/dam-api-examples.sh
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending
 npm run dam:decide -- submit --asset-id EXAMPLE --decision love --by dave --notes "hero"
@@ -59,7 +64,7 @@ npm run dam:decide -- submit --asset-id EXAMPLE --decision love --by dave --note
 
 Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` (overrides file), `DAM_API_DISABLE=1` (skip server — CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
 
-**MCP (Cursor):** see [mcp/README.md](mcp/README.md) — `node mcp/index.mjs` with `DAM_API_BASE` / `DAM_API_TOKEN_FILE`.
+**Optional MCP (Cursor / Claude):** [mcp/README.md](mcp/README.md) — `node mcp/index.mjs` with `DAM_API_BASE` / `DAM_API_TOKEN_FILE`.
 
 ## Gallery V1
 
@@ -92,6 +97,8 @@ Details: [docs/WEB-SYNC.md](docs/WEB-SYNC.md). Does not replace Electron; `npm r
 - Project Gallery plan: see Project store `docs/v1-gallery-plan.md` (or legacy `v0.5-gallery-plan.md` until renamed)
 - Day 1 notes: [docs/DAY1-README.md](docs/DAY1-README.md)
 - Web sync scaffold: [docs/WEB-SYNC.md](docs/WEB-SYNC.md)
+- Harness connectivity (any agent via HTTP): [docs/HARNESS-CONNECTIVITY.md](docs/HARNESS-CONNECTIVITY.md)
+- DAM OpenAPI 3: [docs/openapi-dam-api.yaml](docs/openapi-dam-api.yaml)
 - Agent / harness ↔ Electron sync (Phase 1): [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md)
 
 ## CI

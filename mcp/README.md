@@ -1,6 +1,6 @@
 # dammwt MCP (Phase 1)
 
-Thin **stdio MCP** wrapper over the Electron localhost HTTP API (`127.0.0.1:7842`). No business logic — every tool is an HTTP call.
+Thin **optional** stdio MCP adapter over the Electron localhost HTTP API (`127.0.0.1:7842`). No business logic — every tool is an HTTP call. Any harness can skip MCP and call HTTP directly ([`docs/HARNESS-CONNECTIVITY.md`](../docs/HARNESS-CONNECTIVITY.md), OpenAPI [`docs/openapi-dam-api.yaml`](../docs/openapi-dam-api.yaml)).
 
 Requires **Electron MWT DAM running** with the Phase 1 API enabled. See [`docs/AGENT-ELECTRON-SYNC.md`](../docs/AGENT-ELECTRON-SYNC.md).
 
