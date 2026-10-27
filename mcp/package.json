@@ -1,0 +1,16 @@
+{
+  "name": "dammwt-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Thin stdio MCP wrapper over MWT DAM localhost HTTP API",
+  "type": "module",
+  "bin": {
+    "dammwt-mcp": "./index.mjs"
+  },
+  "scripts": {
+    "start": "node ./index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

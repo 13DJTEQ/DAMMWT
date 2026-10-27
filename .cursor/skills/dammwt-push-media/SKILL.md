@@ -66,4 +66,16 @@ npm run review:electron
 # SEED=1 npm run review:electron
 ```
 
+## When Electron is up — API / MCP / dam:decide
+
+Queue, decisions, lineage, reveal via localhost API (not a second DB writer). Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` or token file under app userData.
+
+```bash
+npm run dam:decide -- health
+npm run dam:decide -- queue --status pending
+npm run dam:decide -- submit --asset-id <id> --decision love --by cursor-agent
+```
+
+MCP: `mcp/README.md` → `node mcp/index.mjs`. Contract: `docs/AGENT-ELECTRON-SYNC.md`. Bytes still via `push:media` / `dam:section`.
+
 Full steps, when-to-create-section, and tattoo / comfy / logo examples: read the personal skill above. CLI SoT: `scripts/push-media.mjs` (+ `dam:section`) and `docs/MEDIA-INVENTORY.md`.

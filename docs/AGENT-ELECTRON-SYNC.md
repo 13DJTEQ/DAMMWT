@@ -2,7 +2,16 @@
 
 Plan-ready design for generative creative workflows where **Electron MWT DAM is the central review/approval viewpoint**, and agents / harnesses / Comfy scripts push work into it and read decisions back.
 
-**Status:** design only (this doc). Implementation tracks this Phase 1 path — no option menu.
+**Status:** Phase 1 **implemented** (HTTP API + MCP + `dam:decide` + skill/docs)
+
+| Piece | Status |
+|-------|--------|
+| HTTP API in Electron (`src/api/localServer.ts` + `DamService`) | **implemented** |
+| MCP stdio wrapper (`mcp/`) | **implemented** |
+| `npm run dam:decide` CLI | **implemented** |
+| Skill docs (API/MCP when Electron up) | **implemented** |
+| README curl + MCP config | **implemented** |
+| `npm run verify:api` | **implemented** (API sibling) |
 
 ---
 
@@ -246,14 +255,14 @@ Package: stdio MCP server that only calls the HTTP API (env `DAM_API_BASE`, `DAM
 | `dam_open_file` | `POST /v1/shell/open` | Open in Preview / editor |
 | `dam_refresh` | `POST /v1/media/refresh` | Force ingest if watch missed |
 
-Cursor MCP config (sketch):
+Cursor MCP config (**implemented** — no build step; run `mcp/index.mjs` directly):
 
 ```json
 {
   "mcpServers": {
     "dammwt": {
       "command": "node",
-      "args": ["/Users/administrator/src/DAMMWT/mcp/dist/index.js"],
+      "args": ["/Users/administrator/src/DAMMWT/mcp/index.mjs"],
       "env": {
         "DAM_API_BASE": "http://127.0.0.1:7842",
         "DAM_API_TOKEN_FILE": "/Users/administrator/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token"
@@ -262,6 +271,8 @@ Cursor MCP config (sketch):
   }
 }
 ```
+
+Details: [`mcp/README.md`](../mcp/README.md).
 
 ---
 
@@ -276,7 +287,22 @@ Keep as the durable staging SoT:
 | `npm run review:electron` | Rebuild/launch Gallery (central viewpoint) |
 | `SEED=1 npm run review:electron` | Force seed when schema/links stale |
 
-Optional Phase 1.1: `npm run dam:api -- approvals …` thin CLI over HTTP for shell harnesses that prefer not to curl.
+### `dam:decide` (Phase 1 — implemented)
+
+Thin HTTP CLI for shell harnesses (same contract as MCP):
+
+```bash
+npm run dam:decide -- health
+npm run dam:decide -- queue --status pending --project my-client
+npm run dam:decide -- submit --asset-id <id> --decision love --by cursor-agent --notes "steer"
+npm run dam:decide -- lineage --asset-id <id>
+npm run dam:decide -- reveal --path /abs/path/under/assets/media/…
+npm run dam:decide -- refresh
+npm run dam:decide -- project --slug agent-sync-probe
+npm run dam:decide -- push --file /abs/out.png --partition generated --project my-client
+```
+
+Env: `DAM_API_BASE` / `DAM_API_PORT` / `DAM_API_TOKEN` / `DAM_API_TOKEN_FILE`.
 
 ---
 
@@ -317,14 +343,14 @@ dam_create_project → (Comfy run) → dam_push_asset(s)
 
 ## Implementation sketch (ordered)
 
-1. Extract `DamService` from IPC handler bodies (queue, approve, lineage helpers, refresh, shell).
-2. Point `registerIpcHandlers` at `DamService` (behavior-preserving; `npm run verify` green).
-3. Add `localServer.ts`; start after DB in `bootstrap()`; broadcast on mutations.
-4. Implement lineage query on `DatabaseManager` (`getLineage(assetId)`).
-5. Wire `POST /projects` + `POST /assets` to existing push-media helpers (extract shared module from `scripts/push-media.mjs` if needed, or `spawn` CLI for Phase 1 speed).
-6. Add `mcp/` thin client + README for Cursor config.
-7. Docs: link from `README.md`; update `docs/WEB-SYNC.md` “open decision” → Electron speaks localhost API.
-8. Verify: extend gallery verify or add `verify:api` hitting health + approve round-trip under Electron-as-test harness.
+1. **Done:** Extract `DamService` from IPC handler bodies (`src/api/DamService.ts`).
+2. **Done:** Point `registerIpcHandlers` at `DamService`.
+3. **Done:** `localServer.ts`; start after DB in `bootstrap()`; broadcast on mutations.
+4. **Done:** Lineage query on `DatabaseManager` (`getLineage(assetId)`).
+5. **Done:** `POST /projects` + `POST /assets` via push-media spawn / DamService.
+6. **Done:** `mcp/` thin client + README for Cursor config; `npm run dam:decide`.
+7. **Done:** link from `README.md` + curl examples. WEB-SYNC “open decision” can note Electron localhost API.
+8. **Done:** `npm run verify:api` (health + approve round-trip under Electron-as-Node harness).
 
 ---
 

@@ -45,11 +45,21 @@ TOKEN=$(cat "$HOME/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-toke
 # Health is unauthenticated:
 curl -s http://127.0.0.1:7842/v1/health | jq .
 
-# Authenticated example:
-curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7842/v1/queue?status=pending | jq .
+# Authenticated examples:
+curl -s -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:7842/v1/queue?status=pending" | jq .
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"assetId":"EXAMPLE","decision":"love","reviewedBy":"dave","notes":"hero"}' \
+  http://127.0.0.1:7842/v1/approvals | jq .
+
+# Thin CLI (same HTTP contract):
+npm run dam:decide -- health
+npm run dam:decide -- queue --status pending
+npm run dam:decide -- submit --asset-id EXAMPLE --decision love --by dave --notes "hero"
 ```
 
 Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` (overrides file), `DAM_API_DISABLE=1` (skip server — CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
+
+**MCP (Cursor):** see [mcp/README.md](mcp/README.md) — `node mcp/index.mjs` with `DAM_API_BASE` / `DAM_API_TOKEN_FILE`.
 
 ## Gallery V1
 
