@@ -29,6 +29,38 @@ tags:
   - name: refresh
 
 paths:
+  /:
+    get:
+      tags: [health]
+      summary: API discovery root
+      description: |
+        Unauthenticated. Returns JSON pointers to health and OpenAPI so a
+        browser hit on the base URL is not blank.
+      operationId: discoveryRoot
+      security: []
+      responses:
+        '200':
+          description: Discovery document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryResponse'
+
+  /v1:
+    get:
+      tags: [health]
+      summary: API v1 discovery
+      description: Same discovery payload as `/`.
+      operationId: discoveryV1
+      security: []
+      responses:
+        '200':
+          description: Discovery document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryResponse'
+
   /health:
     get:
       tags: [health]

@@ -105,6 +105,25 @@ async function main(): Promise<void> {
   const base = `http://127.0.0.1:${port}`;
 
   try {
+    // Discovery roots — no auth (browser-friendly)
+    for (const discoveryPath of ['/', '/v1'] as const) {
+      const discovery = await fetchJson(base, discoveryPath);
+      if (
+        discovery.status !== 200 ||
+        discovery.body.ok !== true ||
+        discovery.body.health !== '/v1/health' ||
+        typeof discovery.body.openapi !== 'string'
+      ) {
+        throw new Error(
+          `discovery ${discoveryPath} failed: ${JSON.stringify(discovery)}`
+        );
+      }
+      console.log(`GET ${discoveryPath} ok:`, {
+        health: discovery.body.health,
+        openapi: discovery.body.openapi,
+      });
+    }
+
     // Health — no auth
     const health = await fetchJson(base, '/v1/health');
     if (health.status !== 200 || health.body.ok !== true) {

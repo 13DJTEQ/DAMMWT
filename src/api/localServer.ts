@@ -162,6 +162,20 @@ async function handleRequest(
     const path = normalizePath(url.pathname);
     const method = (req.method ?? 'GET').toUpperCase();
 
+    // Discovery roots — unauthenticated so a browser hit isn't blank / 401
+    if (method === 'GET' && (path === '/' || path === '/v1')) {
+      json(res, 200, {
+        ok: true,
+        service: 'MWT DAM',
+        apiVersion: DAM_API_VERSION,
+        health: '/v1/health',
+        openapi: 'docs/openapi-dam-api.yaml',
+        base: '/v1',
+        docs: 'docs/HARNESS-CONNECTIVITY.md',
+      });
+      return;
+    }
+
     // Health is unauthenticated
     if (method === 'GET' && (path === '/v1/health' || path === '/health')) {
       json(res, 200, service.healthCheck());
