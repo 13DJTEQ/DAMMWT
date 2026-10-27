@@ -33,12 +33,30 @@ SEED=1 npm run review:electron
 
 `review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**). Every launch idempotently ingests new manifest rows (including `projects/<slug>/…`). While the app is open, `push:media` / manifest changes also auto-ingest (watch → seed → Gallery refresh); focus the window or click **Refresh** if needed. Project sections from `dam:section` appear under **Projects** even before assets are pushed.
 
+## Localhost DAM API (agents / harness)
+
+With Electron running, main also serves a **loopback-only** HTTP API on `127.0.0.1:7842` (shared `DamService` + SQLite — same process as IPC). Design: [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md).
+
+```bash
+# Token file (created on first launch; mode 0600):
+#   ~/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token
+TOKEN=$(cat "$HOME/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token")
+
+# Health is unauthenticated:
+curl -s http://127.0.0.1:7842/v1/health | jq .
+
+# Authenticated example:
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7842/v1/queue?status=pending | jq .
+```
+
+Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` (overrides file), `DAM_API_DISABLE=1` (skip server — CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
+
 ## Gallery V1
 
 | Layer | Contents |
 |-------|----------|
 | Decisions | ❤️ Love · 👍 Keep · 👎 Reject (+ notes); Request Changes secondary for resubmit |
-| Persistence | SQLite `ReviewQueue` / `ApprovalHistory` via Electron IPC (no Hermes HTTP) |
+| Persistence | SQLite `ReviewQueue` / `ApprovalHistory` via Electron IPC + localhost HTTP API |
 | UI | Preview-first gallery queue + decision card + Love/Keep/Reject stats |
 | Keys | `1` love · `2` keep · `3` reject · `n` notes |
 
@@ -46,7 +64,7 @@ Week 1 formal Approve naming mapped to **keep**; **love** is a distinct strong-p
 
 ## Verify
 
-`npm run verify` runs Days 1/2/5/6 + Gallery V1 coverage. Optional: `npm run verify:day34`, `npm run verify:gallery`.
+`npm run verify` runs Days 1/2/5/6 + Gallery V1 + DAM API coverage. Optional: `npm run verify:day34`, `npm run verify:gallery`, `npm run verify:api`.
 
 ## Web Gallery + sync (scaffold)
 
