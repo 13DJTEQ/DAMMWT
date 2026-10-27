@@ -39,6 +39,7 @@ export {
   IPC_CHANNELS,
   MEDIA_UPDATED_CHANNEL,
   createDamApi,
+  createDamService,
   registerIpcHandlers,
   type DamApi,
   type HealthCheckResult,
@@ -53,6 +54,27 @@ export {
   assertSafeExternalUrl,
   type ShellActionResult,
 } from './ipc/shellSafe';
+export {
+  DamService,
+  DAM_API_VERSION,
+  QUEUE_UPDATED_CHANNEL,
+  type DamHealthResult,
+  type DamLineageResult,
+  type DamMutationEvent,
+  type DamMutationKind,
+  type DamServiceOptions,
+  type CreateProjectResult,
+  type PushAssetInput,
+} from './api/DamService';
+export {
+  startLocalServer,
+  resolveApiToken,
+  isDamApiDisabled,
+  DEFAULT_DAM_API_PORT,
+  DAM_API_TOKEN_FILENAME,
+  type LocalServerOptions,
+  type LocalServerHandle,
+} from './api/localServer';
 export {
   ArchiveScheduler,
   type ArchiveJobResult,

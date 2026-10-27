@@ -509,6 +509,47 @@ export class DatabaseManager {
       .get(assetId) as ReviewQueueRow | undefined;
   }
 
+  /**
+   * Lineage for an asset: walk parentSourceId to SoT (null parent), plus
+   * siblings that share the same parentSourceId (excludes self).
+   */
+  getLineage(assetId: string): {
+    asset: ReviewQueueRow;
+    chain: ReviewQueueRow[];
+    siblings: ReviewQueueRow[];
+  } | null {
+    const asset = this.getByAssetId(assetId);
+    if (!asset) {
+      return null;
+    }
+
+    const chain: ReviewQueueRow[] = [asset];
+    const seen = new Set<string>([asset.assetId]);
+    let cursor: string | null = asset.parentSourceId;
+    while (cursor && !seen.has(cursor)) {
+      const parent = this.getByAssetId(cursor);
+      if (!parent) break;
+      chain.push(parent);
+      seen.add(parent.assetId);
+      cursor = parent.parentSourceId;
+    }
+
+    let siblings: ReviewQueueRow[] = [];
+    if (asset.parentSourceId) {
+      siblings = (
+        this.db
+          .prepare(
+            `SELECT * FROM ReviewQueue
+             WHERE parentSourceId = ? AND assetId != ?
+             ORDER BY updatedAt DESC`
+          )
+          .all(asset.parentSourceId, asset.assetId) as ReviewQueueRow[]
+      );
+    }
+
+    return { asset, chain, siblings };
+  }
+
   /** True when the review queue has no rows (first-launch seed gate). */
   isEmpty(): boolean {
     const row = this.db

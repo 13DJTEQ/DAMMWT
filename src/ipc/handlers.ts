@@ -8,9 +8,11 @@ import type {
   SubmitApprovalInput,
 } from '../database/DatabaseManager';
 import {
-  safeOpenExternal,
-  safeOpenPath,
-  safeRevealInFolder,
+  DamService,
+  type RefreshMediaResult,
+  type DamHealthResult,
+} from '../api/DamService';
+import {
   type ShellActionResult,
   type ShellBridge,
 } from './shellSafe';
@@ -37,19 +39,12 @@ export const IPC_CHANNELS = [
 /** Push payload for main → renderer `media:updated` (not an invoke channel). */
 export const MEDIA_UPDATED_CHANNEL = 'media:updated' as const;
 
-export interface RefreshMediaResult {
-  inserted: number;
-  skipped: number;
-  total: number;
-}
+export type { RefreshMediaResult };
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
-export interface HealthCheckResult {
-  ok: boolean;
-  dbReady: boolean;
-  stats: QueueStats;
-}
+/** IPC health shape — extends DamService health (apiVersion / electronPid). */
+export type HealthCheckResult = DamHealthResult;
 
 /**
  * Minimal ipcMain surface so handlers can be registered in Electron
@@ -104,11 +99,6 @@ export interface DamApi {
 
 export type InvokeFn = (channel: string, ...args: unknown[]) => Promise<unknown>;
 
-const SHELL_UNAVAILABLE: ShellActionResult = {
-  ok: false,
-  error: 'Shell actions are not available in this context',
-};
-
 /**
  * Typed renderer-side contract shared by preload and tests.
  */
@@ -138,36 +128,58 @@ export function createDamApi(invoke: InvokeFn): DamApi {
 }
 
 /**
+ * Build a DamService from DB + optional shell options (IPC / verify harness).
+ */
+export function createDamService(
+  db: DatabaseManager,
+  shellOptions?: ShellHandlerOptions
+): DamService {
+  return new DamService({
+    db,
+    shell: shellOptions?.shell,
+    allowedMediaRoots: shellOptions?.allowedMediaRoots,
+    refreshMedia: shellOptions?.refreshMedia,
+    getMediaProjects: shellOptions?.getMediaProjects,
+  });
+}
+
+/**
  * Register all DAM IPC invoke handlers against an ipcMain-like object.
+ * Prefer passing a DamService so IPC and HTTP share one façade.
  * @returns the channel list that was registered
  */
 export function registerIpcHandlers(
   ipcMain: IpcMainLike,
-  db: DatabaseManager,
+  dbOrService: DatabaseManager | DamService,
   shellOptions?: ShellHandlerOptions
 ): readonly IpcChannel[] {
+  const service =
+    dbOrService instanceof DamService
+      ? dbOrService
+      : createDamService(dbOrService, shellOptions);
+
   ipcMain.handle('ingestAsset', (_event, input) => {
-    return db.ingestAsset(input as IngestAssetInput);
+    return service.ingestAsset(input as IngestAssetInput);
   });
 
   ipcMain.handle('getReviewQueue', (_event, status) => {
-    return db.getReviewQueue(status as ReviewStatus | undefined);
+    return service.getReviewQueue(status as ReviewStatus | undefined);
   });
 
   ipcMain.handle('submitApproval', (_event, input) => {
-    return db.submitApproval(input as SubmitApprovalInput);
+    return service.submitApproval(input as SubmitApprovalInput);
   });
 
   ipcMain.handle('getQueueStats', () => {
-    return db.getQueueStats();
+    return service.getQueueStats();
   });
 
   ipcMain.handle('getAssetVersionHistory', (_event, assetId) => {
-    return db.getAssetVersionHistory(assetId as string);
+    return service.getAssetVersionHistory(assetId as string);
   });
 
   ipcMain.handle('resubmitAsset', (_event, assetId, newSourceIdentifier, previewUrl) => {
-    return db.resubmitAsset(
+    return service.resubmitAsset(
       assetId as string,
       newSourceIdentifier as string,
       previewUrl as string
@@ -175,61 +187,27 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('healthCheck', () => {
-    const stats = db.getQueueStats();
-    const result: HealthCheckResult = {
-      ok: true,
-      dbReady: true,
-      stats,
-    };
-    return result;
+    return service.healthCheck();
   });
 
   ipcMain.handle('revealInFolder', (_event, localPath) => {
-    if (!shellOptions) {
-      return SHELL_UNAVAILABLE;
-    }
-    return safeRevealInFolder(
-      shellOptions.shell,
-      localPath as string,
-      shellOptions.allowedMediaRoots
-    );
+    return service.revealInFolder(localPath as string);
   });
 
   ipcMain.handle('openLocalPath', (_event, localPath) => {
-    if (!shellOptions) {
-      return SHELL_UNAVAILABLE;
-    }
-    return safeOpenPath(
-      shellOptions.shell,
-      localPath as string,
-      shellOptions.allowedMediaRoots
-    );
+    return service.openLocalPath(localPath as string);
   });
 
   ipcMain.handle('openCloudUrl', (_event, cloudUrl) => {
-    if (!shellOptions) {
-      return SHELL_UNAVAILABLE;
-    }
-    return safeOpenExternal(shellOptions.shell, cloudUrl as string);
+    return service.openCloudUrl(cloudUrl as string);
   });
 
   ipcMain.handle('refreshMedia', async () => {
-    if (!shellOptions?.refreshMedia) {
-      const empty: RefreshMediaResult = {
-        inserted: 0,
-        skipped: 0,
-        total: 0,
-      };
-      return empty;
-    }
-    return shellOptions.refreshMedia();
+    return service.refreshMedia();
   });
 
   ipcMain.handle('getMediaProjects', async () => {
-    if (!shellOptions?.getMediaProjects) {
-      return [] as string[];
-    }
-    return shellOptions.getMediaProjects();
+    return service.getMediaProjects();
   });
 
   return IPC_CHANNELS;

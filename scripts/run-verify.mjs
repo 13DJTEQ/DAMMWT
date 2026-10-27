@@ -19,6 +19,7 @@ const SCRIPTS = {
   day6: { file: 'scripts/verify-day6.ts' },
   day34: { file: 'scripts/verify-day34.ts', project: 'tsconfig.verify.json' },
   gallery: { file: 'scripts/verify-gallery.ts', project: 'tsconfig.verify.json' },
+  api: { file: 'scripts/verify-dam-api.ts', project: 'tsconfig.verify.json' },
 };
 
 const key = process.argv[2];

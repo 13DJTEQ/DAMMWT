@@ -1,6 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { existsSync, watch, type FSWatcher } from 'fs';
 import { basename, join } from 'path';
+import { DamService, QUEUE_UPDATED_CHANNEL } from './api/DamService';
+import {
+  isDamApiDisabled,
+  startLocalServer,
+  type LocalServerHandle,
+} from './api/localServer';
 import { DatabaseManager } from './database/DatabaseManager';
 import {
   MEDIA_UPDATED_CHANNEL,
@@ -15,20 +21,23 @@ import {
 
 /**
  * Electron main process.
- * Boots SQLite under userData, registers IPC, then loads the Gallery UI.
- * No HTTP server — renderer talks only through preload → ipcMain.
+ * Boots SQLite under userData, registers IPC + localhost HTTP API, then loads
+ * the Gallery UI. Renderer talks through preload → ipcMain; agents/harnesses
+ * use http://127.0.0.1:7842/v1 (see docs/AGENT-ELECTRON-SYNC.md).
  *
  * On every launch, idempotently seeds new manifest rows (including project
  * sections) so push:media assets appear even when the queue is non-empty.
  * SEED=1 forces a seed pass (same as npm run seed:media before review).
  *
  * Watches the media manifest so push:media / curate can ingest without relaunch;
- * notifies renderers via `media:updated`.
+ * notifies renderers via `media:updated` (also after HTTP mutations).
  */
 
 const WATCH_DEBOUNCE_MS = 400;
 
 let db: DatabaseManager | null = null;
+let damService: DamService | null = null;
+let apiServer: LocalServerHandle | null = null;
 let mediaWatcher: FSWatcher | null = null;
 let watchDebounce: ReturnType<typeof setTimeout> | null = null;
 /** Serialize seed runs so watch + Refresh never overlap. */
@@ -108,11 +117,23 @@ function broadcastMediaUpdated(payload: {
   inserted: number;
   skipped: number;
   total: number;
-  source: 'watch' | 'refresh';
+  source: 'watch' | 'refresh' | 'api';
 }): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send(MEDIA_UPDATED_CHANNEL, payload);
+    }
+  }
+}
+
+function broadcastQueueUpdated(payload: {
+  kind: string;
+  assetId?: string;
+  project?: string;
+}): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(QUEUE_UPDATED_CHANNEL, payload);
     }
   }
 }
@@ -122,7 +143,7 @@ function broadcastMediaUpdated(payload: {
  * fs.watch events and overlapping Refresh never run concurrent seeds.
  */
 function reseedFromManifest(
-  source: 'watch' | 'refresh'
+  source: 'watch' | 'refresh' | 'api'
 ): Promise<SeedMediaResult | null> {
   seedChain = seedChain
     .catch(() => null)
@@ -216,17 +237,20 @@ function stopMediaManifestWatcher(): void {
 }
 
 async function bootstrap(): Promise<void> {
-  const dbPath =
-    process.env.DAM_DB_PATH ?? join(app.getPath('userData'), 'dam.db');
+  const userDataPath = app.getPath('userData');
+  const dbPath = process.env.DAM_DB_PATH ?? join(userDataPath, 'dam.db');
   db = new DatabaseManager(dbPath);
   maybeSeedMedia(db);
-  registerIpcHandlers(ipcMain, db, {
+
+  damService = new DamService({
+    db,
     shell: {
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
       openPath: (fullPath) => shell.openPath(fullPath),
       openExternal: (url) => shell.openExternal(url),
     },
     allowedMediaRoots: allowedMediaRoots(),
+    repoRoot: process.cwd(),
     refreshMedia: async () => {
       const result = await reseedFromManifest('refresh');
       return {
@@ -236,8 +260,49 @@ async function bootstrap(): Promise<void> {
       };
     },
     getMediaProjects: () => listMediaProjectSlugs(),
+    onMutation: (event) => {
+      // Avoid double-broadcast when refreshMedia already sent media:updated.
+      if (event.kind === 'refresh') {
+        broadcastQueueUpdated({
+          kind: event.kind,
+          assetId: event.assetId,
+          project: event.project,
+        });
+        return;
+      }
+      broadcastMediaUpdated({
+        inserted: event.inserted ?? 0,
+        skipped: event.skipped ?? 0,
+        total: event.total ?? 0,
+        source: 'api',
+      });
+      broadcastQueueUpdated({
+        kind: event.kind,
+        assetId: event.assetId,
+        project: event.project,
+      });
+    },
   });
+
+  registerIpcHandlers(ipcMain, damService);
   startMediaManifestWatcher();
+
+  if (isDamApiDisabled()) {
+    console.log('[api] DAM_API_DISABLE=1 — localhost HTTP API not started');
+  } else {
+    try {
+      apiServer = await startLocalServer({
+        service: damService,
+        userDataPath,
+      });
+    } catch (err) {
+      console.warn(
+        '[api] Failed to start localhost HTTP API:',
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   createWindow();
 }
 
@@ -262,6 +327,11 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopMediaManifestWatcher();
+  if (apiServer) {
+    void apiServer.close().catch(() => undefined);
+    apiServer = null;
+  }
   db?.close();
   db = null;
+  damService = null;
 });
