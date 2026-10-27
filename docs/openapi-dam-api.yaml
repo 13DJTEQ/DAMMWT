@@ -1,0 +1,898 @@
+openapi: 3.0.3
+info:
+  title: MWT DAM Localhost HTTP API
+  description: |
+    Universal harness contract for MWT DAM (DAMMWT). Electron main binds
+    loopback-only (`127.0.0.1`) and shares `DamService` / SQLite with IPC.
+
+    **Principle:** HTTP is the universal contract. MCP and CLI are optional
+    adapters over the same routes.
+
+    Implementation: `src/api/localServer.ts` (apiVersion `1`).
+    Connectivity guide: `docs/HARNESS-CONNECTIVITY.md`.
+  version: '1'
+  contact:
+    name: Media Wave Technology
+
+servers:
+  - url: http://127.0.0.1:7842
+    description: Default Electron localhost bind (DAM_API_PORT overrides port)
+
+tags:
+  - name: health
+  - name: projects
+  - name: assets
+  - name: queue
+  - name: decision
+  - name: lineage
+  - name: shell
+  - name: refresh
+
+paths:
+  /:
+    get:
+      tags: [health]
+      summary: API discovery root
+      description: |
+        Unauthenticated. Returns JSON pointers to health and OpenAPI so a
+        browser hit on the base URL is not blank.
+      operationId: discoveryRoot
+      security: []
+      responses:
+        '200':
+          description: Discovery document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryResponse'
+
+  /v1:
+    get:
+      tags: [health]
+      summary: API v1 discovery
+      description: Same discovery payload as `/`.
+      operationId: discoveryV1
+      security: []
+      responses:
+        '200':
+          description: Discovery document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryResponse'
+
+  /health:
+    get:
+      tags: [health]
+      summary: Health (unauthenticated alias)
+      description: Same as `/v1/health`. No bearer token required.
+      operationId: healthAlias
+      security: []
+      responses:
+        '200':
+          description: API up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /v1/health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: |
+        Unauthenticated. Returns queue stats, apiVersion, and Electron PID.
+        Use to fail fast when DAM is not running.
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: API up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /v1/projects:
+    get:
+      tags: [projects]
+      summary: List media project slugs
+      operationId: listProjects
+      responses:
+        '200':
+          description: Registered `manifest.projects[]` slugs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, projects]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  projects:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [projects]
+      summary: Create project section
+      description: |
+        Ensures `assets/media/projects/<slug>/{originals,tattoos,generated}/`
+        and a `manifest.projects` entry (same as `npm run dam:section`).
+        Triggers refresh / `media:updated`.
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug]
+              properties:
+                slug:
+                  type: string
+                  example: my-client
+      responses:
+        '200':
+          description: Section ensured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProjectResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          description: CLI / create failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProjectResult'
+
+  /v1/assets:
+    post:
+      tags: [assets]
+      summary: Push / stage asset metadata
+      description: |
+        Preferred: `{ sourcePath, partition, project?, … }` — stages via
+        `push:media` then returns the queue row.
+        Alternate: DB-shaped ingest fields when bytes are already under an
+        allowed media root (`ingest` object or IngestAssetInput-shaped body).
+      operationId: pushAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushAssetInput'
+            examples:
+              stagedViaCli:
+                summary: Stage file from disk
+                value:
+                  sourcePath: /abs/comfy/out.png
+                  partition: generated
+                  project: my-client
+                  pipeline: comfy
+                  parentSourceId: orig-base-01-irezumi-color-dragon
+                  batch: run-42
+                  tags: [comfyui, gen]
+                  title: Hero take 14
+      responses:
+        '200':
+          description: Asset row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/ingest:
+    post:
+      tags: [assets]
+      summary: DB-only ingest
+      description: Insert a row when bytes are already under an allowed media root.
+      operationId: ingestAsset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestAssetInput'
+      responses:
+        '200':
+          description: Ingested row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/queue:
+    get:
+      tags: [queue]
+      summary: Review queue
+      operationId: getReviewQueue
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ReviewStatus'
+          description: Filter by decision status
+        - name: project
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter rows belonging to a project slug
+      responses:
+        '200':
+          description: Queue rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, queue]
+                properties:
+                  ok:
+                    type: boolean
+                  queue:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReviewQueueRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/queue/stats:
+    get:
+      tags: [queue]
+      summary: Queue stats
+      operationId: getQueueStats
+      responses:
+        '200':
+          description: Aggregates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, stats]
+                properties:
+                  ok:
+                    type: boolean
+                  stats:
+                    $ref: '#/components/schemas/QueueStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/approvals:
+    post:
+      tags: [decision]
+      summary: Submit approval decision
+      description: |
+        Same path as Gallery IPC `submitApproval`. Broadcasts `media:updated`
+        so the open Gallery refreshes.
+      operationId: submitApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitApprovalInput'
+            example:
+              assetId: EXAMPLE
+              decision: love
+              reviewedBy: cursor-agent
+              notes: steer next gen
+      responses:
+        '200':
+          description: Updated asset row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/assets/{assetId}:
+    get:
+      tags: [assets]
+      summary: Get asset by id
+      operationId: getAsset
+      parameters:
+        - $ref: '#/components/parameters/assetId'
+      responses:
+        '200':
+          description: Asset row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/assets/{assetId}/lineage:
+    get:
+      tags: [lineage]
+      summary: Lineage chain + siblings
+      description: |
+        Walk `parentSourceId` to SoT (`null` parent). Siblings share the same
+        `parentSourceId`. Rules match `docs/MEDIA-INVENTORY.md`.
+      operationId: getLineage
+      parameters:
+        - $ref: '#/components/parameters/assetId'
+      responses:
+        '200':
+          description: Lineage payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset, chain, siblings]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+                  chain:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReviewQueueRow'
+                  siblings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReviewQueueRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/assets/{assetId}/history:
+    get:
+      tags: [decision]
+      summary: Approval history for asset
+      operationId: getAssetHistory
+      parameters:
+        - $ref: '#/components/parameters/assetId'
+      responses:
+        '200':
+          description: History rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, history]
+                properties:
+                  ok:
+                    type: boolean
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApprovalHistoryRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/assets/{assetId}/resubmit:
+    post:
+      tags: [decision]
+      summary: Resubmit after changesRequested
+      operationId: resubmitAsset
+      parameters:
+        - $ref: '#/components/parameters/assetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceIdentifier, previewUrl]
+              properties:
+                sourceIdentifier:
+                  type: string
+                newSourceIdentifier:
+                  type: string
+                  description: Alias accepted by the server
+                previewUrl:
+                  type: string
+      responses:
+        '200':
+          description: Resubmitted row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, asset]
+                properties:
+                  ok:
+                    type: boolean
+                  asset:
+                    $ref: '#/components/schemas/ReviewQueueRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/shell/reveal:
+    post:
+      tags: [shell]
+      summary: Reveal path in Finder / file manager
+      description: Path must resolve under allowed media roots.
+      operationId: shellReveal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [localPath]
+              properties:
+                localPath:
+                  type: string
+      responses:
+        '200':
+          description: Revealed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '400':
+          description: Missing path or outside allowed roots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/shell/open:
+    post:
+      tags: [shell]
+      summary: Open local file
+      operationId: shellOpen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [localPath]
+              properties:
+                localPath:
+                  type: string
+      responses:
+        '200':
+          description: Opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '400':
+          description: Missing path or outside allowed roots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/shell/open-cloud:
+    post:
+      tags: [shell]
+      summary: Open cloud URL (http/https only)
+      operationId: shellOpenCloud
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cloudUrl]
+              properties:
+                cloudUrl:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '400':
+          description: Missing or invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShellActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/media/refresh:
+    post:
+      tags: [refresh]
+      summary: Reseed from manifest
+      description: Forces ingest if the file watch missed a change.
+      operationId: refreshMedia
+      responses:
+        '200':
+          description: Seed result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, inserted, skipped, total]
+                properties:
+                  ok:
+                    type: boolean
+                  inserted:
+                    type: integer
+                  skipped:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token from `$userData/dam-api-token` (created on first Electron launch,
+        mode 0600) or env `DAM_API_TOKEN` (wins over file).
+        Default macOS path:
+        `~/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token`
+
+  parameters:
+    assetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Review queue asset id
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            ok: false
+            error: Unauthorized
+    BadRequest:
+      description: Validation or business-rule error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    NotFound:
+      description: Unknown route or asset
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+
+    ReviewStatus:
+      type: string
+      enum: [pending, love, keep, reject, changesRequested]
+
+    DecisionStatus:
+      type: string
+      enum: [love, keep, reject, changesRequested]
+
+    MediaPartition:
+      type: string
+      enum: [originals, tattoos, generated]
+
+    QueueStats:
+      type: object
+      required: [total, pending, love, keep, reject, changesRequested]
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        love:
+          type: integer
+        keep:
+          type: integer
+        reject:
+          type: integer
+        changesRequested:
+          type: integer
+
+    DiscoveryResponse:
+      type: object
+      required: [ok, service, apiVersion, health, openapi, base]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        service:
+          type: string
+          example: MWT DAM
+        apiVersion:
+          type: string
+          example: '1'
+        health:
+          type: string
+          example: /v1/health
+        openapi:
+          type: string
+          example: docs/openapi-dam-api.yaml
+        base:
+          type: string
+          example: /v1
+        docs:
+          type: string
+          example: docs/HARNESS-CONNECTIVITY.md
+
+    HealthResponse:
+      type: object
+      required: [ok, dbReady, stats, apiVersion, electronPid]
+      properties:
+        ok:
+          type: boolean
+        dbReady:
+          type: boolean
+        stats:
+          $ref: '#/components/schemas/QueueStats'
+        apiVersion:
+          type: string
+          example: '1'
+        electronPid:
+          type: integer
+
+    ReviewQueueRow:
+      type: object
+      required:
+        - id
+        - assetId
+        - status
+        - version
+        - sourceBackend
+        - sourceIdentifier
+        - previewUrl
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReviewStatus'
+        version:
+          type: integer
+        sourceBackend:
+          type: string
+        sourceIdentifier:
+          type: string
+        previewUrl:
+          type: string
+        localPath:
+          type: string
+          nullable: true
+        cloudUrl:
+          type: string
+          nullable: true
+        projectTag:
+          type: string
+          nullable: true
+        tags:
+          type: string
+          nullable: true
+        designatedReviewer:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        partition:
+          allOf:
+            - $ref: '#/components/schemas/MediaPartition'
+          nullable: true
+        parentSourceId:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        archiveScheduledAt:
+          type: string
+          nullable: true
+
+    ApprovalHistoryRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        reviewQueueId:
+          type: integer
+        version:
+          type: integer
+        decision:
+          $ref: '#/components/schemas/ReviewStatus'
+        notes:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+
+    SubmitApprovalInput:
+      type: object
+      required: [assetId, decision, reviewedBy]
+      properties:
+        assetId:
+          type: string
+        decision:
+          $ref: '#/components/schemas/DecisionStatus'
+        reviewedBy:
+          type: string
+          description: Free string (e.g. dave, cursor-agent, comfy-harness, hermes)
+        notes:
+          type: string
+
+    IngestAssetInput:
+      type: object
+      required:
+        - assetId
+        - sourceBackend
+        - sourceIdentifier
+        - previewUrl
+      properties:
+        assetId:
+          type: string
+        sourceBackend:
+          type: string
+        sourceIdentifier:
+          type: string
+        previewUrl:
+          type: string
+        localPath:
+          type: string
+          nullable: true
+        cloudUrl:
+          type: string
+          nullable: true
+        projectTag:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        designatedReviewer:
+          type: string
+        description:
+          type: string
+        partition:
+          $ref: '#/components/schemas/MediaPartition'
+        parentSourceId:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+
+    PushAssetInput:
+      type: object
+      properties:
+        sourcePath:
+          type: string
+          description: Absolute (or cwd-relative) file to stage via push:media
+        partition:
+          type: string
+          description: Required when sourcePath is set
+        project:
+          type: string
+        pipeline:
+          type: string
+        parentSourceId:
+          type: string
+          nullable: true
+        batch:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+          nullable: true
+        cloudUrl:
+          type: string
+          nullable: true
+        assetId:
+          type: string
+          nullable: true
+        ingest:
+          $ref: '#/components/schemas/IngestAssetInput'
+
+    CreateProjectResult:
+      type: object
+      required: [ok, slug, created, path]
+      properties:
+        ok:
+          type: boolean
+        slug:
+          type: string
+        created:
+          type: boolean
+        path:
+          type: string
+          example: projects/my-client
+        error:
+          type: string
+
+    ShellActionResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+
+security:
+  - bearerAuth: []

@@ -3,18 +3,43 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { SourceBackendType } from '../storage/StorageBackend';
 
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'changesRequested';
+/** Gallery V1 decisions + pending / resubmit path from Week 1. */
+export type ReviewStatus =
+  | 'pending'
+  | 'love'
+  | 'keep'
+  | 'reject'
+  | 'changesRequested';
+
 export type ApprovalDecision = ReviewStatus;
+
+/** Tattoo-design media partition (manifest originals | tattoos | generated). */
+export type MediaPartition = 'originals' | 'tattoos' | 'generated';
+
+/** Positive gallery decisions that schedule 30-day archive. */
+export const ARCHIVE_ON_DECISIONS: ReadonlySet<ApprovalDecision> = new Set([
+  'love',
+  'keep',
+]);
 
 export interface IngestAssetInput {
   assetId: string;
   sourceBackend: SourceBackendType;
   sourceIdentifier: string;
   previewUrl: string;
+  /** Absolute or repo-relative filesystem path for Reveal / Open file. */
+  localPath?: string | null;
+  /** Optional Notion / Drive / Supabase / CDN URL for Open cloud. */
+  cloudUrl?: string | null;
   projectTag?: string;
   tags?: string[];
   designatedReviewer?: string;
   description?: string;
+  /** originals | tattoos | generated — Source of Truth vs derived work. */
+  partition?: MediaPartition | null;
+  /** Lineage: generated/tattoo assetId of the parent original when set. */
+  parentSourceId?: string | null;
+  title?: string | null;
 }
 
 export interface SubmitApprovalInput {
@@ -32,10 +57,15 @@ export interface ReviewQueueRow {
   sourceBackend: SourceBackendType;
   sourceIdentifier: string;
   previewUrl: string;
+  localPath: string | null;
+  cloudUrl: string | null;
   projectTag: string | null;
   tags: string | null;
   designatedReviewer: string | null;
   description: string | null;
+  partition: MediaPartition | null;
+  parentSourceId: string | null;
+  title: string | null;
   createdAt: string;
   updatedAt: string;
   archiveScheduledAt: string | null;
@@ -54,8 +84,9 @@ export interface ApprovalHistoryRow {
 export interface QueueStats {
   total: number;
   pending: number;
-  approved: number;
-  rejected: number;
+  love: number;
+  keep: number;
+  reject: number;
   changesRequested: number;
 }
 
@@ -73,7 +104,7 @@ export interface ArchiveJobRow {
 }
 
 /**
- * SQLite manager for review queue, approval audit trail, and archive jobs.
+ * SQLite manager for review queue, gallery decisions, and archive jobs.
  * Uses WAL mode for atomic writes (avoids JSON persistence brittleness).
  */
 export class DatabaseManager {
@@ -89,7 +120,147 @@ export class DatabaseManager {
   private migrate(): void {
     const schemaPath = this.resolveSchemaPath();
     const ddl = readFileSync(schemaPath, 'utf8');
+    // Legacy DBs may lack additive columns referenced by schema indexes;
+    // apply table DDL, add columns, then re-apply so indexes succeed.
+    try {
+      this.db.exec(ddl);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/no such column/i.test(msg)) {
+        throw err;
+      }
+    }
+    this.migrateLegacyApproved();
+    this.ensureMediaLineageColumns();
     this.db.exec(ddl);
+  }
+
+  /**
+   * Additive columns for tattoo-design SoT / lineage / file links (safe on existing DBs).
+   */
+  private ensureMediaLineageColumns(): void {
+    const cols = this.db
+      .prepare(`PRAGMA table_info(ReviewQueue)`)
+      .all() as Array<{ name: string }>;
+    const names = new Set(cols.map((c) => c.name));
+    if (!names.has('partition')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN partition TEXT`);
+    }
+    if (!names.has('parentSourceId')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN parentSourceId TEXT`);
+    }
+    if (!names.has('title')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN title TEXT`);
+    }
+    if (!names.has('localPath')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN localPath TEXT`);
+    }
+    if (!names.has('cloudUrl')) {
+      this.db.exec(`ALTER TABLE ReviewQueue ADD COLUMN cloudUrl TEXT`);
+    }
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_review_queue_partition ON ReviewQueue(partition)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_review_queue_parent ON ReviewQueue(parentSourceId)`
+    );
+  }
+
+  /**
+   * Week 1 used `approved`; Gallery V1 uses `keep` (and distinct `love`).
+   * Safe no-op on fresh Gallery schemas.
+   */
+  private migrateLegacyApproved(): void {
+    const queueSql = (
+      this.db
+        .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ReviewQueue'`)
+        .get() as { sql: string } | undefined
+    )?.sql;
+    if (queueSql && queueSql.includes("'approved'") && !queueSql.includes("'love'")) {
+      this.rebuildQueueTablesForGallery();
+      return;
+    }
+    try {
+      this.db.exec(`UPDATE ReviewQueue SET status = 'keep' WHERE status = 'approved'`);
+      this.db.exec(
+        `UPDATE ApprovalHistory SET decision = 'keep' WHERE decision = 'approved'`
+      );
+    } catch {
+      /* CHECK may already exclude approved */
+    }
+  }
+
+  private rebuildQueueTablesForGallery(): void {
+    this.db.exec(`PRAGMA foreign_keys = OFF`);
+    this.db.exec(`
+      CREATE TABLE ReviewQueue_v1 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        assetId TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL CHECK (
+          status IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
+        ) DEFAULT 'pending',
+        version INTEGER NOT NULL DEFAULT 1,
+        sourceBackend TEXT NOT NULL CHECK (
+          sourceBackend IN ('local', 'fal.ai', 'replit', 'comfyui')
+        ),
+        sourceIdentifier TEXT NOT NULL,
+        previewUrl TEXT NOT NULL,
+        projectTag TEXT,
+        tags TEXT,
+        designatedReviewer TEXT,
+        description TEXT,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        archiveScheduledAt TEXT
+      );
+
+      INSERT INTO ReviewQueue_v1 (
+        id, assetId, status, version, sourceBackend, sourceIdentifier, previewUrl,
+        projectTag, tags, designatedReviewer, description, createdAt, updatedAt,
+        archiveScheduledAt
+      )
+      SELECT
+        id, assetId,
+        CASE status WHEN 'approved' THEN 'keep' WHEN 'rejected' THEN 'reject' ELSE status END,
+        version, sourceBackend, sourceIdentifier, previewUrl,
+        projectTag, tags, designatedReviewer, description, createdAt, updatedAt,
+        archiveScheduledAt
+      FROM ReviewQueue;
+
+      CREATE TABLE ApprovalHistory_v1 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reviewQueueId INTEGER NOT NULL,
+        version INTEGER NOT NULL,
+        decision TEXT NOT NULL CHECK (
+          decision IN ('pending', 'love', 'keep', 'reject', 'changesRequested')
+        ),
+        notes TEXT,
+        reviewedBy TEXT,
+        reviewedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (reviewQueueId) REFERENCES ReviewQueue_v1(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO ApprovalHistory_v1 (
+        id, reviewQueueId, version, decision, notes, reviewedBy, reviewedAt
+      )
+      SELECT
+        id, reviewQueueId, version,
+        CASE decision WHEN 'approved' THEN 'keep' WHEN 'rejected' THEN 'reject' ELSE decision END,
+        notes, reviewedBy, reviewedAt
+      FROM ApprovalHistory;
+
+      DROP TABLE ApprovalHistory;
+      DROP TABLE ReviewQueue;
+      ALTER TABLE ReviewQueue_v1 RENAME TO ReviewQueue;
+      ALTER TABLE ApprovalHistory_v1 RENAME TO ApprovalHistory;
+
+      CREATE INDEX IF NOT EXISTS idx_review_queue_status ON ReviewQueue(status);
+      CREATE INDEX IF NOT EXISTS idx_review_queue_reviewer ON ReviewQueue(designatedReviewer);
+      CREATE INDEX IF NOT EXISTS idx_review_queue_archive ON ReviewQueue(archiveScheduledAt);
+      CREATE INDEX IF NOT EXISTS idx_approval_history_queue ON ApprovalHistory(reviewQueueId);
+      CREATE INDEX IF NOT EXISTS idx_approval_history_version ON ApprovalHistory(reviewQueueId, version);
+    `);
+    this.db.exec(`PRAGMA foreign_keys = ON`);
   }
 
   private resolveSchemaPath(): string {
@@ -116,10 +287,12 @@ export class DatabaseManager {
         .prepare(
           `INSERT INTO ReviewQueue (
             assetId, status, version, sourceBackend, sourceIdentifier,
-            previewUrl, projectTag, tags, designatedReviewer, description
+            previewUrl, localPath, cloudUrl, projectTag, tags, designatedReviewer, description,
+            partition, parentSourceId, title
           ) VALUES (
             @assetId, 'pending', 1, @sourceBackend, @sourceIdentifier,
-            @previewUrl, @projectTag, @tags, @designatedReviewer, @description
+            @previewUrl, @localPath, @cloudUrl, @projectTag, @tags, @designatedReviewer, @description,
+            @partition, @parentSourceId, @title
           )`
         )
         .run({
@@ -127,10 +300,15 @@ export class DatabaseManager {
           sourceBackend: input.sourceBackend,
           sourceIdentifier: input.sourceIdentifier,
           previewUrl: input.previewUrl,
+          localPath: input.localPath ?? null,
+          cloudUrl: input.cloudUrl ?? null,
           projectTag: input.projectTag ?? null,
           tags: input.tags ? JSON.stringify(input.tags) : null,
           designatedReviewer: input.designatedReviewer ?? null,
           description: input.description ?? null,
+          partition: input.partition ?? null,
+          parentSourceId: input.parentSourceId ?? null,
+          title: input.title ?? null,
         });
 
       const reviewQueueId = Number(result.lastInsertRowid);
@@ -153,9 +331,9 @@ export class DatabaseManager {
   }
 
   /**
-   * Transactional approval: update queue status + write history row.
-   * Approvals schedule a 30-day archive job.
-   * changesRequested leaves the asset awaiting resubmit (version stays until resubmit).
+   * Transactional gallery/formal decision: update queue status + write history.
+   * love/keep schedule a 30-day archive job.
+   * changesRequested leaves the asset awaiting resubmit.
    */
   submitApproval(input: SubmitApprovalInput): ReviewQueueRow {
     const run = this.db.transaction(() => {
@@ -169,10 +347,9 @@ export class DatabaseManager {
         );
       }
 
-      const archiveScheduledAt =
-        input.decision === 'approved'
-          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          : null;
+      const archiveScheduledAt = ARCHIVE_ON_DECISIONS.has(input.decision)
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
 
       this.db
         .prepare(
@@ -202,7 +379,7 @@ export class DatabaseManager {
           reviewedBy: input.reviewedBy,
         });
 
-      if (input.decision === 'approved' && archiveScheduledAt) {
+      if (archiveScheduledAt) {
         this.db
           .prepare(
             `INSERT INTO ArchiveJob (
@@ -286,19 +463,28 @@ export class DatabaseManager {
       .prepare(
         `SELECT status, COUNT(*) AS count FROM ReviewQueue GROUP BY status`
       )
-      .all() as Array<{ status: ReviewStatus; count: number }>;
+      .all() as Array<{ status: string; count: number }>;
 
     const stats: QueueStats = {
       total: 0,
       pending: 0,
-      approved: 0,
-      rejected: 0,
+      love: 0,
+      keep: 0,
+      reject: 0,
       changesRequested: 0,
     };
 
     for (const row of rows) {
       stats.total += row.count;
-      stats[row.status] = row.count;
+      const key =
+        row.status === 'approved'
+          ? 'keep'
+          : row.status === 'rejected'
+            ? 'reject'
+            : row.status;
+      if (key in stats && key !== 'total') {
+        stats[key as keyof Omit<QueueStats, 'total'>] += row.count;
+      }
     }
     return stats;
   }
@@ -323,15 +509,99 @@ export class DatabaseManager {
       .get(assetId) as ReviewQueueRow | undefined;
   }
 
+  /**
+   * Lineage for an asset: walk parentSourceId to SoT (null parent), plus
+   * siblings that share the same parentSourceId (excludes self).
+   */
+  getLineage(assetId: string): {
+    asset: ReviewQueueRow;
+    chain: ReviewQueueRow[];
+    siblings: ReviewQueueRow[];
+  } | null {
+    const asset = this.getByAssetId(assetId);
+    if (!asset) {
+      return null;
+    }
+
+    const chain: ReviewQueueRow[] = [asset];
+    const seen = new Set<string>([asset.assetId]);
+    let cursor: string | null = asset.parentSourceId;
+    while (cursor && !seen.has(cursor)) {
+      const parent = this.getByAssetId(cursor);
+      if (!parent) break;
+      chain.push(parent);
+      seen.add(parent.assetId);
+      cursor = parent.parentSourceId;
+    }
+
+    let siblings: ReviewQueueRow[] = [];
+    if (asset.parentSourceId) {
+      siblings = (
+        this.db
+          .prepare(
+            `SELECT * FROM ReviewQueue
+             WHERE parentSourceId = ? AND assetId != ?
+             ORDER BY updatedAt DESC`
+          )
+          .all(asset.parentSourceId, asset.assetId) as ReviewQueueRow[]
+      );
+    }
+
+    return { asset, chain, siblings };
+  }
+
+  /** True when the review queue has no rows (first-launch seed gate). */
+  isEmpty(): boolean {
+    const row = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM ReviewQueue`)
+      .get() as { count: number };
+    return row.count === 0;
+  }
+
+  /**
+   * Idempotent ingest: skip when assetId already exists.
+   * Backfills localPath / cloudUrl when the row is missing those links.
+   * @returns the row and whether it was newly inserted
+   */
+  ingestAssetIfAbsent(
+    input: IngestAssetInput
+  ): { row: ReviewQueueRow; inserted: boolean } {
+    const existing = this.getByAssetId(input.assetId);
+    if (existing) {
+      const needsLocal =
+        input.localPath &&
+        (!existing.localPath || existing.localPath !== input.localPath);
+      const needsCloud =
+        input.cloudUrl !== undefined &&
+        input.cloudUrl !== null &&
+        existing.cloudUrl !== input.cloudUrl;
+      if (needsLocal || needsCloud) {
+        this.db
+          .prepare(
+            `UPDATE ReviewQueue
+             SET localPath = COALESCE(@localPath, localPath),
+                 cloudUrl = COALESCE(@cloudUrl, cloudUrl),
+                 updatedAt = datetime('now')
+             WHERE assetId = @assetId`
+          )
+          .run({
+            assetId: input.assetId,
+            localPath: input.localPath ?? null,
+            cloudUrl: input.cloudUrl ?? null,
+          });
+        return { row: this.getByAssetId(input.assetId)!, inserted: false };
+      }
+      return { row: existing, inserted: false };
+    }
+    return { row: this.ingestAsset(input), inserted: true };
+  }
+
   getReviewQueueById(id: number): ReviewQueueRow | undefined {
     return this.db
       .prepare(`SELECT * FROM ReviewQueue WHERE id = ?`)
       .get(id) as ReviewQueueRow | undefined;
   }
 
-  /**
-   * Archive jobs due for processing: status=scheduled and scheduledAt <= nowIso.
-   */
   listDueArchiveJobs(nowIso: string = new Date().toISOString()): ArchiveJobRow[] {
     return this.db
       .prepare(
@@ -356,9 +626,6 @@ export class DatabaseManager {
       .all(reviewQueueId) as ArchiveJobRow[];
   }
 
-  /**
-   * Force a scheduled job's due time (used by Day 5 verify to skip the 30-day wait).
-   */
   setArchiveJobScheduledAt(jobId: number, scheduledAt: string): ArchiveJobRow {
     const run = this.db.transaction(() => {
       const existing = this.getArchiveJobById(jobId);
@@ -373,9 +640,6 @@ export class DatabaseManager {
     return run();
   }
 
-  /**
-   * Update ArchiveJob status / retention / cold URL / error inside a WAL transaction.
-   */
   updateArchiveJob(
     jobId: number,
     patch: {

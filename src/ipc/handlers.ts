@@ -7,6 +7,15 @@ import type {
   ReviewStatus,
   SubmitApprovalInput,
 } from '../database/DatabaseManager';
+import {
+  DamService,
+  type RefreshMediaResult,
+  type DamHealthResult,
+} from '../api/DamService';
+import {
+  type ShellActionResult,
+  type ShellBridge,
+} from './shellSafe';
 
 /**
  * IPC channel names exposed to the renderer via preload.
@@ -20,15 +29,22 @@ export const IPC_CHANNELS = [
   'getAssetVersionHistory',
   'resubmitAsset',
   'healthCheck',
+  'revealInFolder',
+  'openLocalPath',
+  'openCloudUrl',
+  'refreshMedia',
+  'getMediaProjects',
 ] as const;
+
+/** Push payload for main → renderer `media:updated` (not an invoke channel). */
+export const MEDIA_UPDATED_CHANNEL = 'media:updated' as const;
+
+export type { RefreshMediaResult };
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
-export interface HealthCheckResult {
-  ok: boolean;
-  dbReady: boolean;
-  stats: QueueStats;
-}
+/** IPC health shape — extends DamService health (apiVersion / electronPid). */
+export type HealthCheckResult = DamHealthResult;
 
 /**
  * Minimal ipcMain surface so handlers can be registered in Electron
@@ -39,6 +55,22 @@ export interface IpcMainLike {
     channel: string,
     listener: (event: unknown, ...args: unknown[]) => unknown
   ): void;
+}
+
+/** Optional Electron shell + allowed media roots for file / cloud open actions. */
+export interface ShellHandlerOptions {
+  shell: ShellBridge;
+  /** Absolute paths that localPath must resolve under. */
+  allowedMediaRoots: readonly string[];
+  /**
+   * Optional: re-seed from assets/media/manifest.json (main-process only).
+   * Used by Gallery Refresh / auto-ingest; better-sqlite3 stays off the renderer.
+   */
+  refreshMedia?: () => RefreshMediaResult | Promise<RefreshMediaResult>;
+  /**
+   * Optional: project section slugs from manifest.projects[] (incl. empty).
+   */
+  getMediaProjects?: () => string[] | Promise<string[]>;
 }
 
 export interface DamApi {
@@ -53,6 +85,16 @@ export interface DamApi {
     previewUrl: string
   ): Promise<ReviewQueueRow>;
   healthCheck(): Promise<HealthCheckResult>;
+  /** Reveal local asset in Finder / Explorer (path must be under media roots). */
+  revealInFolder(localPath: string): Promise<ShellActionResult>;
+  /** Open local asset with the OS default app. */
+  openLocalPath(localPath: string): Promise<ShellActionResult>;
+  /** Open cloudUrl in the default browser (http/https only). */
+  openCloudUrl(cloudUrl: string): Promise<ShellActionResult>;
+  /** Re-ingest new manifest rows into SQLite (idempotent). */
+  refreshMedia(): Promise<RefreshMediaResult>;
+  /** Registered project section slugs (manifest.projects[] + may be empty). */
+  getMediaProjects(): Promise<string[]>;
 }
 
 export type InvokeFn = (channel: string, ...args: unknown[]) => Promise<unknown>;
@@ -74,39 +116,70 @@ export function createDamApi(invoke: InvokeFn): DamApi {
     resubmitAsset: (assetId, newSourceIdentifier, previewUrl) =>
       invoke('resubmitAsset', assetId, newSourceIdentifier, previewUrl) as Promise<ReviewQueueRow>,
     healthCheck: () => invoke('healthCheck') as Promise<HealthCheckResult>,
+    revealInFolder: (localPath) =>
+      invoke('revealInFolder', localPath) as Promise<ShellActionResult>,
+    openLocalPath: (localPath) =>
+      invoke('openLocalPath', localPath) as Promise<ShellActionResult>,
+    openCloudUrl: (cloudUrl) =>
+      invoke('openCloudUrl', cloudUrl) as Promise<ShellActionResult>,
+    refreshMedia: () => invoke('refreshMedia') as Promise<RefreshMediaResult>,
+    getMediaProjects: () => invoke('getMediaProjects') as Promise<string[]>,
   };
 }
 
 /**
+ * Build a DamService from DB + optional shell options (IPC / verify harness).
+ */
+export function createDamService(
+  db: DatabaseManager,
+  shellOptions?: ShellHandlerOptions
+): DamService {
+  return new DamService({
+    db,
+    shell: shellOptions?.shell,
+    allowedMediaRoots: shellOptions?.allowedMediaRoots,
+    refreshMedia: shellOptions?.refreshMedia,
+    getMediaProjects: shellOptions?.getMediaProjects,
+  });
+}
+
+/**
  * Register all DAM IPC invoke handlers against an ipcMain-like object.
+ * Prefer passing a DamService so IPC and HTTP share one façade.
  * @returns the channel list that was registered
  */
 export function registerIpcHandlers(
   ipcMain: IpcMainLike,
-  db: DatabaseManager
+  dbOrService: DatabaseManager | DamService,
+  shellOptions?: ShellHandlerOptions
 ): readonly IpcChannel[] {
+  const service =
+    dbOrService instanceof DamService
+      ? dbOrService
+      : createDamService(dbOrService, shellOptions);
+
   ipcMain.handle('ingestAsset', (_event, input) => {
-    return db.ingestAsset(input as IngestAssetInput);
+    return service.ingestAsset(input as IngestAssetInput);
   });
 
   ipcMain.handle('getReviewQueue', (_event, status) => {
-    return db.getReviewQueue(status as ReviewStatus | undefined);
+    return service.getReviewQueue(status as ReviewStatus | undefined);
   });
 
   ipcMain.handle('submitApproval', (_event, input) => {
-    return db.submitApproval(input as SubmitApprovalInput);
+    return service.submitApproval(input as SubmitApprovalInput);
   });
 
   ipcMain.handle('getQueueStats', () => {
-    return db.getQueueStats();
+    return service.getQueueStats();
   });
 
   ipcMain.handle('getAssetVersionHistory', (_event, assetId) => {
-    return db.getAssetVersionHistory(assetId as string);
+    return service.getAssetVersionHistory(assetId as string);
   });
 
   ipcMain.handle('resubmitAsset', (_event, assetId, newSourceIdentifier, previewUrl) => {
-    return db.resubmitAsset(
+    return service.resubmitAsset(
       assetId as string,
       newSourceIdentifier as string,
       previewUrl as string
@@ -114,13 +187,27 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle('healthCheck', () => {
-    const stats = db.getQueueStats();
-    const result: HealthCheckResult = {
-      ok: true,
-      dbReady: true,
-      stats,
-    };
-    return result;
+    return service.healthCheck();
+  });
+
+  ipcMain.handle('revealInFolder', (_event, localPath) => {
+    return service.revealInFolder(localPath as string);
+  });
+
+  ipcMain.handle('openLocalPath', (_event, localPath) => {
+    return service.openLocalPath(localPath as string);
+  });
+
+  ipcMain.handle('openCloudUrl', (_event, cloudUrl) => {
+    return service.openCloudUrl(cloudUrl as string);
+  });
+
+  ipcMain.handle('refreshMedia', async () => {
+    return service.refreshMedia();
+  });
+
+  ipcMain.handle('getMediaProjects', async () => {
+    return service.getMediaProjects();
   });
 
   return IPC_CHANNELS;
