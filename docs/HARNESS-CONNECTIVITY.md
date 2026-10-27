@@ -56,6 +56,7 @@ Smoke script: `bash scripts/dam-api-examples.sh` (or `npm run dam:decide -- heal
 
 | Method | Path | Auth | Role |
 |--------|------|------|------|
+| `GET` | `/` · `/v1` | no | Discovery JSON (`health`, `openapi`, `base`) — browser-friendly |
 | `GET` | `/v1/health` | no | Fail-fast; `{ ok, dbReady, stats, apiVersion, electronPid }` |
 | `GET` | `/v1/projects` | yes | List project slugs |
 | `POST` | `/v1/projects` | yes | Create section `{ "slug" }` |

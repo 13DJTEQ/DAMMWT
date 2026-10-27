@@ -655,6 +655,32 @@ components:
         changesRequested:
           type: integer
 
+    DiscoveryResponse:
+      type: object
+      required: [ok, service, apiVersion, health, openapi, base]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        service:
+          type: string
+          example: MWT DAM
+        apiVersion:
+          type: string
+          example: '1'
+        health:
+          type: string
+          example: /v1/health
+        openapi:
+          type: string
+          example: docs/openapi-dam-api.yaml
+        base:
+          type: string
+          example: /v1
+        docs:
+          type: string
+          example: docs/HARNESS-CONNECTIVITY.md
+
     HealthResponse:
       type: object
       required: [ok, dbReady, stats, apiVersion, electronPid]
