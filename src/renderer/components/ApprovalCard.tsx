@@ -1,12 +1,34 @@
-import type { ReviewQueueRow } from '../damApi';
+import { useEffect, useRef, useState } from 'react';
+import type { MediaPartition, ReviewQueueRow } from '../damApi';
+import { getDamApi } from '../damApi';
+
+export type GalleryDecision = 'love' | 'keep' | 'reject' | 'changesRequested';
 
 interface ApprovalCardProps {
   asset: ReviewQueueRow | null;
+  parentAsset: ReviewQueueRow | null;
   busy: boolean;
   reviewedBy: string;
-  onApprove: (notes?: string) => void;
-  onReject: (notes?: string) => void;
-  onRequestChanges: (notes?: string) => void;
+  notes: string;
+  onNotesChange: (notes: string) => void;
+  onDecide: (decision: GalleryDecision, notes?: string) => void;
+  onRevealParent?: (assetId: string) => void;
+}
+
+function resolveLocalPath(asset: ReviewQueueRow): string | null {
+  if (asset.localPath?.trim()) return asset.localPath.trim();
+  if (asset.sourceIdentifier?.trim() && !/^https?:/i.test(asset.sourceIdentifier)) {
+    return asset.sourceIdentifier.trim();
+  }
+  return null;
+}
+
+function partitionLabel(partition: MediaPartition | null): string | null {
+  if (!partition) return null;
+  if (partition === 'originals') return 'Original (Source of Truth)';
+  if (partition === 'tattoos') return 'Tattoo';
+  if (partition === 'generated') return 'Generated';
+  return partition;
 }
 
 function parseTags(raw: string | null): string[] {
@@ -21,17 +43,66 @@ function parseTags(raw: string | null): string[] {
 
 export function ApprovalCard({
   asset,
+  parentAsset,
   busy,
   reviewedBy,
-  onApprove,
-  onReject,
-  onRequestChanges,
+  notes,
+  onNotesChange,
+  onDecide,
+  onRevealParent,
 }: ApprovalCardProps): JSX.Element {
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const [fileHint, setFileHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFileHint(null);
+  }, [asset?.assetId]);
+
+  useEffect(() => {
+    if (!asset) return;
+    if (typeof window === 'undefined') return;
+
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'INPUT' ||
+          target.isContentEditable);
+      if (typing && event.key !== 'Escape') {
+        if (event.key === 's' && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (busy) return;
+      if (asset.status !== 'pending' && asset.status !== 'changesRequested') return;
+
+      if (event.key === '1') {
+        event.preventDefault();
+        onDecide('love', notes);
+      } else if (event.key === '2') {
+        event.preventDefault();
+        onDecide('keep', notes);
+      } else if (event.key === '3') {
+        event.preventDefault();
+        onDecide('reject', notes);
+      } else if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        notesRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [asset, busy, notes, onDecide]);
+
   if (!asset) {
     return (
       <section className="approval-panel" aria-label="Asset review">
         <p className="panel-state panel-state--empty">
-          Select an asset from the queue to preview metadata and decide.
+          Select an asset from the gallery to preview, react, and add notes.
         </p>
       </section>
     );
@@ -40,14 +111,61 @@ export function ApprovalCard({
   const tags = parseTags(asset.tags);
   const canDecide =
     !busy && (asset.status === 'pending' || asset.status === 'changesRequested');
+  const displayTitle = asset.title?.trim() || asset.assetId;
+  const partition = partitionLabel(asset.partition);
+  const localPath = resolveLocalPath(asset);
+  const cloudUrl = asset.cloudUrl?.trim() || null;
+  const revealLabel =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+      ? 'Reveal in Finder'
+      : 'Show file';
+
+  const runShell = async (
+    action: 'reveal' | 'open' | 'cloud'
+  ): Promise<void> => {
+    setFileHint(null);
+    try {
+      const api = getDamApi();
+      if (action === 'reveal') {
+        if (!localPath || !api.revealInFolder) {
+          setFileHint('No local path on this asset.');
+          return;
+        }
+        const result = await api.revealInFolder(localPath);
+        if (!result.ok) setFileHint(result.error ?? 'Could not reveal file');
+        return;
+      }
+      if (action === 'open') {
+        if (!localPath || !api.openLocalPath) {
+          setFileHint('No local path on this asset.');
+          return;
+        }
+        const result = await api.openLocalPath(localPath);
+        if (!result.ok) setFileHint(result.error ?? 'Could not open file');
+        return;
+      }
+      if (!cloudUrl || !api.openCloudUrl) {
+        setFileHint('No cloud URL on this asset.');
+        return;
+      }
+      const result = await api.openCloudUrl(cloudUrl);
+      if (!result.ok) setFileHint(result.error ?? 'Could not open cloud URL');
+    } catch (err) {
+      setFileHint(err instanceof Error ? err.message : 'File action failed');
+    }
+  };
 
   return (
     <section className="approval-panel" aria-label={`Review ${asset.assetId}`}>
       <header className="panel-header">
-        <h2>{asset.assetId}</h2>
+        <h2>{displayTitle}</h2>
         <p className="approval-sub">
+          {partition ? `${partition} · ` : null}
           Version {asset.version} · {asset.sourceBackend} · reviewer {reviewedBy}
         </p>
+        {asset.title && asset.title !== asset.assetId ? (
+          <p className="approval-sub approval-sub--id">{asset.assetId}</p>
+        ) : null}
       </header>
 
       <div className="preview-stage">
@@ -62,6 +180,68 @@ export function ApprovalCard({
         )}
       </div>
 
+      <div className="file-actions" role="group" aria-label="Open asset file">
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!localPath}
+          title={localPath ?? 'No local path'}
+          onClick={() => void runShell('reveal')}
+        >
+          {revealLabel}
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!localPath}
+          title={localPath ?? 'No local path'}
+          onClick={() => void runShell('open')}
+        >
+          Open file
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!cloudUrl}
+          title={cloudUrl ?? 'No cloud URL (Notion / Drive / CDN)'}
+          onClick={() => void runShell('cloud')}
+        >
+          Open cloud
+        </button>
+      </div>
+      {fileHint ? <p className="panel-hint panel-hint--warn">{fileHint}</p> : null}
+      {!localPath && !cloudUrl ? (
+        <p className="panel-hint">
+          No localPath or cloudUrl on this row — re-run{' '}
+          <code>npm run seed:media</code> after curating.
+        </p>
+      ) : null}
+
+      {asset.parentSourceId ? (
+        <div className="lineage-panel" aria-label="Generation lineage">
+          <p className="lineage-panel__label">Generation history</p>
+          <p className="lineage-panel__body">
+            Derived from Source of Truth{' '}
+            {parentAsset ? (
+              <button
+                type="button"
+                className="lineage-link"
+                onClick={() => onRevealParent?.(asset.parentSourceId!)}
+              >
+                {parentAsset.title?.trim() || parentAsset.assetId}
+              </button>
+            ) : (
+              <code>{asset.parentSourceId}</code>
+            )}
+          </p>
+        </div>
+      ) : null}
+      {asset.partition === 'originals' ? (
+        <p className="lineage-panel lineage-panel--sot">
+          Source of Truth — originals partition (seed / reference).
+        </p>
+      ) : null}
+
       <dl className="meta-grid">
         <div>
           <dt>Source</dt>
@@ -71,6 +251,30 @@ export function ApprovalCard({
           <dt>Status</dt>
           <dd>{asset.status}</dd>
         </div>
+        {asset.partition ? (
+          <div>
+            <dt>Partition</dt>
+            <dd>{partition}</dd>
+          </div>
+        ) : null}
+        {asset.parentSourceId ? (
+          <div>
+            <dt>Parent ref</dt>
+            <dd>
+              {onRevealParent ? (
+                <button
+                  type="button"
+                  className="lineage-link"
+                  onClick={() => onRevealParent(asset.parentSourceId!)}
+                >
+                  {asset.parentSourceId}
+                </button>
+              ) : (
+                asset.parentSourceId
+              )}
+            </dd>
+          </div>
+        ) : null}
         {asset.projectTag ? (
           <div>
             <dt>Project</dt>
@@ -97,32 +301,67 @@ export function ApprovalCard({
         ) : null}
       </dl>
 
-      <div className="decision-row">
+      <label className="gallery-notes">
+        <span className="gallery-notes__label">Notes</span>
+        <textarea
+          ref={notesRef}
+          className="gallery-notes__input"
+          rows={3}
+          value={notes}
+          disabled={!canDecide}
+          placeholder="Steering notes for this decision…"
+          aria-label="Gallery notes"
+          onChange={(event) => onNotesChange(event.target.value)}
+        />
+      </label>
+
+      <div className="decision-row" role="group" aria-label="Gallery decisions">
         <button
           type="button"
-          className="btn btn--approve"
+          className="btn btn--love"
           disabled={!canDecide}
-          onClick={() => onApprove()}
+          aria-label="Love"
+          title="Love (1)"
+          onClick={() => onDecide('love', notes)}
         >
-          Approve
+          ❤️ Love
+        </button>
+        <button
+          type="button"
+          className="btn btn--keep"
+          disabled={!canDecide}
+          aria-label="Keep"
+          title="Keep (2)"
+          onClick={() => onDecide('keep', notes)}
+        >
+          👍 Keep
         </button>
         <button
           type="button"
           className="btn btn--reject"
           disabled={!canDecide}
-          onClick={() => onReject()}
+          aria-label="Reject"
+          title="Reject (3)"
+          onClick={() => onDecide('reject', notes)}
         >
-          Reject
+          👎 Reject
         </button>
         <button
           type="button"
           className="btn btn--changes"
           disabled={!canDecide}
-          onClick={() => onRequestChanges('Needs revision before publish')}
+          title="Request changes (secondary)"
+          onClick={() =>
+            onDecide('changesRequested', notes.trim() || 'Needs revision before publish')
+          }
         >
           Request Changes
         </button>
       </div>
+
+      <p className="panel-hint">
+        Keys: 1 love · 2 keep · 3 reject · n notes
+      </p>
 
       {!canDecide && !busy ? (
         <p className="panel-hint">

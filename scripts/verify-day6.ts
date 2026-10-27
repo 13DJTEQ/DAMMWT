@@ -116,14 +116,14 @@ async function main(): Promise<void> {
 
     await damApi.submitApproval({
       assetId: 'e2e-1',
-      decision: 'approved',
+      decision: 'keep',
       reviewedBy: 'day6-e2e',
       notes: 'ship it',
     });
 
     const approvedRow = db.getByAssetId('e2e-1');
-    if (!approvedRow || approvedRow.status !== 'approved') {
-      throw new Error(`Expected approved e2e-1, got ${JSON.stringify(approvedRow)}`);
+    if (!approvedRow || approvedRow.status !== 'keep') {
+      throw new Error(`Expected keep e2e-1, got ${JSON.stringify(approvedRow)}`);
     }
 
     const jobs = db.getArchiveJobsForReview(approvedRow.id);
@@ -190,16 +190,17 @@ async function main(): Promise<void> {
     });
     await damApi.submitApproval({
       assetId: 'e2e-reject',
-      decision: 'rejected',
+      decision: 'reject',
       reviewedBy: 'day6-e2e',
     });
     const stats = await damApi.getQueueStats();
-    // e2e-1 approved, e2e-resubmit pending, e2e-reject rejected
+    // e2e-1 keep, e2e-resubmit pending, e2e-reject reject
     const expected = {
       total: 3,
       pending: 1,
-      approved: 1,
-      rejected: 1,
+      love: 0,
+      keep: 1,
+      reject: 1,
       changesRequested: 0,
     };
     if (JSON.stringify(stats) !== JSON.stringify(expected)) {
@@ -218,7 +219,7 @@ async function main(): Promise<void> {
     });
     const failApproved = db.submitApproval({
       assetId: 'e2e-fail-archive',
-      decision: 'approved',
+      decision: 'keep',
       reviewedBy: 'day6-e2e',
     });
     const failJobs = db.getArchiveJobsForReview(failApproved.id);

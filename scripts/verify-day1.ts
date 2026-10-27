@@ -1,6 +1,6 @@
 /**
  * Day 1 acceptance check from the Notion scaffold page.
- * Expected: { total: 1, pending: 1, approved: 0, rejected: 0, changesRequested: 0 }
+ * Expected: { total: 1, pending: 1, love: 0, keep: 0, reject: 0, changesRequested: 0 }
  */
 import { DatabaseManager } from '../src/database/DatabaseManager';
 import { StorageFactory } from '../src/storage/StorageFactory';
@@ -42,8 +42,9 @@ async function main(): Promise<void> {
     const expected = {
       total: 1,
       pending: 1,
-      approved: 0,
-      rejected: 0,
+      love: 0,
+      keep: 0,
+      reject: 0,
       changesRequested: 0,
     };
     if (JSON.stringify(stats) !== JSON.stringify(expected)) {

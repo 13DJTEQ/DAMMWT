@@ -1,24 +1,34 @@
 /**
  * Typed DAM API contract for the renderer.
- * Day 2 preload exposes these on `window.damApi`; verify/tests inject a mock.
+ * Preload exposes these on `window.damApi`; verify/tests inject a mock.
  */
 import type {
   ApprovalHistoryRow,
   IngestAssetInput,
+  MediaPartition,
   QueueStats,
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
 } from '../database/DatabaseManager';
+import type { ShellActionResult } from '../ipc/shellSafe';
 
 export type {
   ApprovalHistoryRow,
   IngestAssetInput,
+  MediaPartition,
   QueueStats,
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
 };
+export type { ShellActionResult };
+
+export interface RefreshMediaResult {
+  inserted: number;
+  skipped: number;
+  total: number;
+}
 
 /** Renderer-facing API — always async so IPC and in-memory mocks share one shape. */
 export interface DamApi {
@@ -32,6 +42,15 @@ export interface DamApi {
     newSourceIdentifier: string,
     previewUrl: string
   ): Promise<ReviewQueueRow>;
+  revealInFolder?(localPath: string): Promise<ShellActionResult>;
+  openLocalPath?(localPath: string): Promise<ShellActionResult>;
+  openCloudUrl?(cloudUrl: string): Promise<ShellActionResult>;
+  /** Main-process re-seed from manifest (optional — Electron only). */
+  refreshMedia?(): Promise<RefreshMediaResult>;
+  /** Registered project slugs from manifest.projects[] (optional — Electron). */
+  getMediaProjects?(): Promise<string[]>;
+  /** Subscribe to `media:updated` from main (optional — Electron only). */
+  onMediaUpdated?(callback: () => void): () => void;
 }
 
 declare global {
@@ -59,6 +78,11 @@ export function getDamApi(): DamApi {
   );
 }
 
+const SHELL_STUB = async (): Promise<ShellActionResult> => ({
+  ok: false,
+  error: 'Shell actions are not available in this context',
+});
+
 /** Wrap a sync DatabaseManager (or compatible) as DamApi. */
 export function createDamApiFromDb(db: {
   ingestAsset(input: IngestAssetInput): ReviewQueueRow;
@@ -80,5 +104,8 @@ export function createDamApiFromDb(db: {
     getAssetVersionHistory: async (assetId) => db.getAssetVersionHistory(assetId),
     resubmitAsset: async (assetId, newSourceIdentifier, previewUrl) =>
       db.resubmitAsset(assetId, newSourceIdentifier, previewUrl),
+    revealInFolder: SHELL_STUB,
+    openLocalPath: SHELL_STUB,
+    openCloudUrl: SHELL_STUB,
   };
 }

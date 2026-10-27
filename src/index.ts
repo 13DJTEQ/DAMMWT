@@ -12,6 +12,7 @@ export { FalBackend } from './storage/FalBackend';
 export { LocalBackend } from './storage/LocalBackend';
 export {
   DatabaseManager,
+  ARCHIVE_ON_DECISIONS,
   type IngestAssetInput,
   type SubmitApprovalInput,
   type ReviewQueueRow,
@@ -21,9 +22,22 @@ export {
   type QueueStats,
   type ReviewStatus,
   type ApprovalDecision,
+  type MediaPartition,
 } from './database/DatabaseManager';
 export {
+  seedMediaFromManifest,
+  resolveMediaRoot,
+  loadMediaManifest,
+  listMediaProjects,
+  listMediaProjectSlugs,
+  type MediaManifest,
+  type MediaProject,
+  type ManifestAsset,
+  type SeedMediaResult,
+} from './media/seedMedia';
+export {
   IPC_CHANNELS,
+  MEDIA_UPDATED_CHANNEL,
   createDamApi,
   registerIpcHandlers,
   type DamApi,
@@ -31,7 +45,14 @@ export {
   type IpcChannel,
   type IpcMainLike,
   type InvokeFn,
+  type RefreshMediaResult,
+  type ShellHandlerOptions,
 } from './ipc/handlers';
+export {
+  resolveUnderAllowedRoots,
+  assertSafeExternalUrl,
+  type ShellActionResult,
+} from './ipc/shellSafe';
 export {
   ArchiveScheduler,
   type ArchiveJobResult,

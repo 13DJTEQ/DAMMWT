@@ -1,6 +1,6 @@
 /**
- * Day 3–4 acceptance: ReviewController + mock damApi update queue/stats
- * without Electron. Also smoke-renders App via react-test-renderer.
+ * Day 3–4 / Gallery UI acceptance: ReviewController + mock damApi update
+ * queue/stats without Electron. Also smoke-renders App via react-test-renderer.
  */
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -58,19 +58,19 @@ async function main(): Promise<void> {
 
     controller.selectAsset('clip-a');
     await controller.submitApproval({
-      decision: 'approved',
+      decision: 'keep',
       reviewedBy: 'verify@mwt.com',
       notes: 'Looks good',
     });
 
     snap = controller.getSnapshot();
-    if (!snap.stats || snap.stats.approved !== 1 || snap.stats.pending !== 1) {
-      throw new Error(`Stats after approve mismatch: ${JSON.stringify(snap.stats)}`);
+    if (!snap.stats || snap.stats.keep !== 1 || snap.stats.pending !== 1) {
+      throw new Error(`Stats after keep mismatch: ${JSON.stringify(snap.stats)}`);
     }
     if (snap.queue.some((row) => row.assetId === 'clip-a')) {
-      throw new Error('Approved asset still listed under pending filter');
+      throw new Error('Kept asset still listed under pending filter');
     }
-    console.log('stats after approve:', snap.stats);
+    console.log('stats after keep:', snap.stats);
 
     controller.selectAsset('clip-b');
     await controller.submitApproval({
@@ -111,8 +111,11 @@ async function main(): Promise<void> {
     if (!text.includes('MWT DAM')) {
       throw new Error('App render missing brand name MWT DAM');
     }
-    if (!text.includes('Review workspace')) {
-      throw new Error('App render missing workspace title');
+    if (!text.includes('Gallery')) {
+      throw new Error('App render missing Gallery title');
+    }
+    if (!text.includes('Love') || !text.includes('Keep')) {
+      throw new Error('App render missing Gallery decision chrome');
     }
 
     console.log(

@@ -1,0 +1,23 @@
+{
+  "source": "MWT Design Kit v2 (2026-10-02) + Brand DNA refs",
+  "locked": {
+    "navy": "#0A192F",
+    "gold": "#D4AF37",
+    "cream": "#f4ede1",
+    "black": "#000000",
+    "white": "#FFFFFF"
+  },
+  "legacyBrandDna": {
+    "red": "#FF0000",
+    "maroon": "#8B0000",
+    "charcoal": "#1A1A1A",
+    "note": "Sept 15 Design Kit dump. Design Kit v2 retires red as a fill/WAVE color for new brand art; red borders still allowed."
+  },
+  "theme": {
+    "name": "red-gold-for-gallery",
+    "accentGold": "#D4AF37",
+    "accentRed": "#FF0000",
+    "surface": "#0A192F",
+    "text": "#f4ede1"
+  }
+}
