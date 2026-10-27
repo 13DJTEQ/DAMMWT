@@ -32,6 +32,7 @@
     "push:media": "node scripts/push-media.mjs",
     "dam:section": "node scripts/push-media.mjs --create-section",
     "dam:decide": "node scripts/dam-decide.mjs",
+    "dam:token": "node scripts/dam-token.mjs",
     "dam:mcp": "node mcp/index.mjs",
     "seed:media": "npm run build && node scripts/seed-media.mjs",
     "verify": "npm run build && node scripts/run-verify.mjs day1 && node scripts/run-verify.mjs day2 && node scripts/run-verify.mjs day5 && node scripts/run-verify.mjs day6 && node scripts/run-verify.mjs gallery && node scripts/run-verify.mjs api",
