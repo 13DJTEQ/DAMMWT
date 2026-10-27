@@ -3,11 +3,12 @@
  * Thin HTTP client for the DAM localhost API (Electron main, loopback only).
  * Used by the MCP stdio server and `npm run dam:decide`.
  *
- * Env:
+ * Env (docs/DAM-HARNESS.md):
  *   DAM_API_BASE        default http://127.0.0.1:${DAM_API_PORT:-7842}
  *   DAM_API_PORT        default 7842
  *   DAM_API_TOKEN       bearer token (wins over file)
  *   DAM_API_TOKEN_FILE  path to token file (default: app userData dam-api-token)
+ *   DAMMWT_ROOT         checkout path (CLI / skills; unused by this client)
  */
 import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';

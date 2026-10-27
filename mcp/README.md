@@ -1,8 +1,13 @@
 # dammwt MCP (Phase 1)
 
-Thin **optional** stdio MCP adapter over the Electron localhost HTTP API (`127.0.0.1:7842`). No business logic — every tool is an HTTP call. Any harness can skip MCP and call HTTP directly ([`docs/HARNESS-CONNECTIVITY.md`](../docs/HARNESS-CONNECTIVITY.md), OpenAPI [`docs/openapi-dam-api.yaml`](../docs/openapi-dam-api.yaml)).
+Thin **optional** stdio MCP adapter over the Electron localhost HTTP API (`127.0.0.1:7842`). No business logic — every tool is an HTTP call. Works with **any** MCP client (Claude Desktop, Cursor, and others) — nothing here is Cursor-specific. Any harness can skip MCP and call HTTP directly ([`docs/HARNESS-CONNECTIVITY.md`](../docs/HARNESS-CONNECTIVITY.md), OpenAPI [`docs/openapi-dam-api.yaml`](../docs/openapi-dam-api.yaml)).
 
-Requires **Electron MWT DAM running** with the Phase 1 API enabled. See [`docs/AGENT-ELECTRON-SYNC.md`](../docs/AGENT-ELECTRON-SYNC.md).
+Requires **Electron MWT DAM running** with the Phase 1 API enabled. Env contract + adapters: [`docs/DAM-HARNESS.md`](../docs/DAM-HARNESS.md). Design: [`docs/AGENT-ELECTRON-SYNC.md`](../docs/AGENT-ELECTRON-SYNC.md).
+
+```bash
+node mcp/index.mjs
+# or: npm run dam:mcp
+```
 
 ## Tools
 
@@ -20,16 +25,25 @@ Requires **Electron MWT DAM running** with the Phase 1 API enabled. See [`docs/A
 
 ## Env
 
+Same contract as all harnesses ([`docs/DAM-HARNESS.md`](../docs/DAM-HARNESS.md)):
+
 | Var | Default | Role |
 |-----|---------|------|
+| `DAMMWT_ROOT` | (checkout path) | Repo root for CLI / skills (not required by MCP itself) |
 | `DAM_API_BASE` | `http://127.0.0.1:${DAM_API_PORT:-7842}` | API root |
 | `DAM_API_PORT` | `7842` | Port when `DAM_API_BASE` unset |
 | `DAM_API_TOKEN` | (from file) | Bearer token (wins over file) |
 | `DAM_API_TOKEN_FILE` | `~/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token` | Token written on first Electron launch |
 
-## Cursor MCP config
+Print token for injection: `npm run dam:token` (or `-- --export` / `-- --value-only`).
 
-Add to Cursor MCP settings (or `~/.cursor/mcp.json`):
+## Client configs (side by side)
+
+Same `command` / `args` / `env` — only the config **file** differs.
+
+### Claude Desktop
+
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -46,7 +60,26 @@ Add to Cursor MCP settings (or `~/.cursor/mcp.json`):
 }
 ```
 
-Or inject the token directly:
+### Cursor
+
+`~/.cursor/mcp.json` (or Cursor MCP settings UI):
+
+```json
+{
+  "mcpServers": {
+    "dammwt": {
+      "command": "node",
+      "args": ["/Users/administrator/src/DAMMWT/mcp/index.mjs"],
+      "env": {
+        "DAM_API_BASE": "http://127.0.0.1:7842",
+        "DAM_API_TOKEN_FILE": "/Users/administrator/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token"
+      }
+    }
+  }
+}
+```
+
+### Token via env (any client)
 
 ```json
 {
@@ -56,7 +89,7 @@ Or inject the token directly:
       "args": ["/Users/administrator/src/DAMMWT/mcp/index.mjs"],
       "env": {
         "DAM_API_PORT": "7842",
-        "DAM_API_TOKEN": "<paste from dam-api-token file>"
+        "DAM_API_TOKEN": "<paste from: npm run dam:token -- --value-only>"
       }
     }
   }
@@ -66,11 +99,13 @@ Or inject the token directly:
 ## Shell alternative
 
 ```bash
-# decisions / queue without MCP
+npm run dam:token
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending
-npm run dam:decide -- submit --asset-id <id> --decision love --by cursor-agent
+npm run dam:decide -- submit --asset-id <id> --decision love --by harness
 ```
+
+Hermes / agents skill: `~/.hermes/skills/dammwt-harness/` · `~/.agents/skills/dammwt-harness/`.
 
 ## When API is down
 

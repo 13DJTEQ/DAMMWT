@@ -62,9 +62,9 @@ npm run dam:decide -- queue --status pending
 npm run dam:decide -- submit --asset-id EXAMPLE --decision love --by dave --notes "hero"
 ```
 
-Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` (overrides file), `DAM_API_DISABLE=1` (skip server — CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
+Env contract (Claude / Grok / Hermes / Cursor): [docs/DAM-HARNESS.md](docs/DAM-HARNESS.md) — `DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE`. Print token for injection: `npm run dam:token`. `DAM_API_DISABLE=1` skips the server (CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
 
-**Optional MCP (Cursor / Claude):** [mcp/README.md](mcp/README.md) — `node mcp/index.mjs` with `DAM_API_BASE` / `DAM_API_TOKEN_FILE`.
+**Optional MCP (any client):** [mcp/README.md](mcp/README.md) — generic stdio `node mcp/index.mjs`; Claude Desktop `claude_desktop_config.json` and Cursor `mcp.json` snippets side by side.
 
 ## Gallery V1
 
@@ -100,6 +100,7 @@ Details: [docs/WEB-SYNC.md](docs/WEB-SYNC.md). Does not replace Electron; `npm r
 - Harness connectivity (any agent via HTTP): [docs/HARNESS-CONNECTIVITY.md](docs/HARNESS-CONNECTIVITY.md)
 - DAM OpenAPI 3: [docs/openapi-dam-api.yaml](docs/openapi-dam-api.yaml)
 - Agent / harness ↔ Electron sync (Phase 1): [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md)
+- Harness adapters + env contract: [docs/DAM-HARNESS.md](docs/DAM-HARNESS.md)
 
 ## CI
 

@@ -68,15 +68,16 @@ npm run review:electron
 
 ## When Electron is up — HTTP API (any harness)
 
-Queue, decisions, lineage, reveal via localhost HTTP (universal contract; MCP/CLI optional). Env: `DAM_API_PORT` (default `7842`), `DAM_API_TOKEN` or token file under app userData. Guide: `docs/HARNESS-CONNECTIVITY.md`. OpenAPI: `docs/openapi-dam-api.yaml`.
+Queue, decisions, lineage, reveal via localhost HTTP (universal contract; MCP/CLI optional). Prefer skill **`dammwt-harness`** (`~/.agents/skills/dammwt-harness`, `~/.hermes/skills/dammwt-harness`) for curl / MCP / Claude / Grok / Hermes. Env: `docs/DAM-HARNESS.md` (`DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE`). Guide: `docs/HARNESS-CONNECTIVITY.md`. OpenAPI: `docs/openapi-dam-api.yaml`.
 
 ```bash
+npm run dam:token
 bash scripts/dam-api-examples.sh
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending
-npm run dam:decide -- submit --asset-id <id> --decision love --by cursor-agent
+npm run dam:decide -- submit --asset-id <id> --decision love --by harness
 ```
 
-Optional MCP: `mcp/README.md` → `node mcp/index.mjs`. Architecture: `docs/AGENT-ELECTRON-SYNC.md`. Bytes still via `push:media` / `dam:section`.
+Optional MCP (Claude Desktop + Cursor): `mcp/README.md` → `node mcp/index.mjs`. Architecture: `docs/AGENT-ELECTRON-SYNC.md`. Bytes still via `push:media` / `dam:section`.
 
 Full steps, when-to-create-section, and tattoo / comfy / logo examples: read the personal skill above. CLI SoT: `scripts/push-media.mjs` (+ `dam:section`) and `docs/MEDIA-INVENTORY.md`.

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * dammwt MCP server (stdio) — thin wrapper over the Electron localhost HTTP API.
+ * Generic MCP JSON-RPC over stdio: Claude Desktop, Cursor, and any MCP client.
  *
  * Requires Electron DAM running with the Phase 1 API on 127.0.0.1:7842.
- * See docs/AGENT-ELECTRON-SYNC.md and mcp/README.md.
+ * See docs/DAM-HARNESS.md, docs/AGENT-ELECTRON-SYNC.md, and mcp/README.md.
  */
 import { damApi, resolveBaseUrl, resolveToken, tokenFilePath } from './client.mjs';
 

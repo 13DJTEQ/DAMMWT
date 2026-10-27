@@ -89,7 +89,24 @@ Set `reviewedBy` to something identifiable (`claude`, `claude-desktop`, …).
 
 ## Cursor MCP
 
-Same stdio server as Claude Desktop — config file is `~/.cursor/mcp.json` (snippets side by side in [`mcp/README.md`](../mcp/README.md)). Or use HTTP directly; skill pointers: `.cursor/skills/dammwt-harness/`, `.cursor/skills/dammwt-push-media/`. Thin CLI: `npm run dam:decide -- …` · `npm run dam:token`.
+Same stdio server as Claude Desktop — config file is `~/.cursor/mcp.json` (snippets side by side in [`mcp/README.md`](../mcp/README.md)):
+
+```json
+{
+  "mcpServers": {
+    "dammwt": {
+      "command": "node",
+      "args": ["/Users/administrator/src/DAMMWT/mcp/index.mjs"],
+      "env": {
+        "DAM_API_BASE": "http://127.0.0.1:7842",
+        "DAM_API_TOKEN_FILE": "/Users/administrator/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token"
+      }
+    }
+  }
+}
+```
+
+Or use HTTP directly in agent prompts / shell: same curl as Quick start. Skill pointers: `.cursor/skills/dammwt-harness/`, `.cursor/skills/dammwt-push-media/`. Thin CLI: `npm run dam:decide -- …` · `npm run dam:token`.
 
 ---
 
