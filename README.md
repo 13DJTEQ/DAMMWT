@@ -64,6 +64,7 @@ Details: [docs/WEB-SYNC.md](docs/WEB-SYNC.md). Does not replace Electron; `npm r
 - Project Gallery plan: see Project store `docs/v1-gallery-plan.md` (or legacy `v0.5-gallery-plan.md` until renamed)
 - Day 1 notes: [docs/DAY1-README.md](docs/DAY1-README.md)
 - Web sync scaffold: [docs/WEB-SYNC.md](docs/WEB-SYNC.md)
+- Agent / harness ↔ Electron sync (Phase 1): [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md)
 
 ## CI
 

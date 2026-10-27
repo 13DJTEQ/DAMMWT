@@ -1,0 +1,364 @@
+# Agent / Harness ↔ Electron DAM — Sync Architecture (Phase 1)
+
+Plan-ready design for generative creative workflows where **Electron MWT DAM is the central review/approval viewpoint**, and agents / harnesses / Comfy scripts push work into it and read decisions back.
+
+**Status:** design only (this doc). Implementation tracks this Phase 1 path — no option menu.
+
+---
+
+## Decision: Phase 1 primary path
+
+**Localhost HTTP API inside Electron main** (bound to `127.0.0.1`) + **thin MCP wrapper** over that API + **existing CLI** (`push:media` / `dam:section`) for disk staging.
+
+| Client | How it talks |
+|--------|----------------|
+| Local Cursor agents (same Mac) | MCP tools → HTTP |
+| Scripts / Comfy (same Mac) | `curl` / `fetch` → HTTP; files via CLI |
+| Cloud agents (later) | Same HTTP contract via tunnel **or** cloud DB mirror (Phase 2+) |
+
+**Why this path (not CLI-only, not MCP-only, not cloud-first):**
+
+1. Electron already owns SQLite (`~/Library/Application Support/@13djteq/mwt-dam-mvp/dam.db`). A second process cannot safely open that DB while Electron runs. The API must share the **same** `DatabaseManager` instance in main.
+2. Agents need live **queue + approvals**, not only file staging. Today CLI stages + seeds; IPC is renderer-only. HTTP fills the gap.
+3. HTTP is the common denominator for Comfy nodes, shell scripts, Cursor MCP, and later tunnels.
+4. MCP stays a **thin wrapper** (no duplicated business logic).
+5. Existing `npm run push:media` / `dam:section` already own staging under `assets/media/` — keep them; do not reimplement copy/manifest in the API.
+
+`src/main.ts` currently states “No HTTP server.” Phase 1 deliberately adds one **localhost-only** server alongside IPC.
+
+---
+
+## Architecture (Phase 1)
+
+```
+┌──────────────────┐  ┌─────────────────┐  ┌────────────────────┐
+│ Cursor agent     │  │ Comfy / scripts │  │ dammwt-push-media  │
+│ (MCP client)     │  │ (curl/fetch)    │  │ skill / CLI        │
+└────────┬─────────┘  └────────┬────────┘  └─────────┬──────────┘
+         │ MCP                 │ HTTP                │ stages files
+         ▼                     ▼                     ▼
+┌────────────────────┐   ┌─────────────────────────────────────┐
+│ dammwt-mcp (stdio) │──▶│ Electron main                       │
+│ thin HTTP client   │   │  • DatabaseManager (SQLite SoT)     │
+└────────────────────┘   │  • IPC handlers (renderer)          │
+                         │  • HTTP API :7842 (127.0.0.1)       │
+                         │  • manifest watch → seed            │
+                         │  • broadcast media:updated          │
+                         └──────────────┬──────────────────────┘
+                                        │
+                    assets/media/manifest.json + dam.db
+                                        │
+                                        ▼
+                         Gallery renderer (central UI)
+                         auto-refresh via media:updated
+```
+
+### Components to add
+
+| Component | Path / location | Role |
+|-----------|-----------------|------|
+| HTTP server | `src/api/localServer.ts` (new), started from `src/main.ts` after DB ready | REST over shared `DatabaseManager` + shell helpers |
+| Shared service layer | `src/api/DamService.ts` (new) | Thin façade used by IPC **and** HTTP (avoid two code paths for approvals) |
+| MCP package | `mcp/` or sibling `dammwt-mcp/` (stdio) | Tools that call localhost HTTP |
+| Token file | `$userData/dam-api-token` (created on first launch) | Localhost auth |
+| Env overrides | `DAM_API_PORT`, `DAM_API_TOKEN`, `DAM_API_DISABLE=1` | Ops / CI |
+
+### Existing pieces reused (do not replace)
+
+| Piece | Path | Role |
+|-------|------|------|
+| SQLite + decisions | `src/database/DatabaseManager.ts`, `schema.sql` | SoT while Electron runs |
+| IPC / DamApi | `src/ipc/handlers.ts`, `src/preload.ts` | Renderer stays IPC |
+| Auto-refresh | `src/main.ts` watch + `MEDIA_UPDATED_CHANNEL` (`media:updated`) | Gallery stays live |
+| Staging CLI | `scripts/push-media.mjs`, `npm run dam:section` | Project sections + asset bytes |
+| Media roots | `assets/media/`, mirror `web/public/media/` | Disk SoT for previews |
+| Shell safety | `src/ipc/shellSafe.ts` | Reveal / open under allowed roots only |
+| Skill | `.cursor/skills/dammwt-push-media/` | Agents already push files |
+
+### Explicit non-goals (Phase 1)
+
+- No Hermes / remote multi-tenant API.
+- No second SQLite writer process.
+- No replacing `push:media` with HTTP multipart uploads (optional later; CLI remains primary for bytes).
+- No Supabase / cloud write path yet (`docs/WEB-SYNC.md` stays browser scaffold).
+- No exposing the API on LAN (`0.0.0.0`).
+
+---
+
+## Sync model
+
+### Phase 1 — SQLite is SoT while Electron runs
+
+| Store | Authority |
+|-------|-----------|
+| `dam.db` (app userData) | **Canonical** for queue status, notes, history, archive jobs |
+| `assets/media/manifest.json` | Canonical for staged catalog + project sections; seed is idempotent into DB |
+| Renderer | Read-only view via IPC; decisions write DB → history |
+
+**Write paths:**
+
+1. **Asset bytes / sections:** CLI → disk + manifest → watch/seed → DB insert (`pending`) → `media:updated`.
+2. **Approvals (human in Gallery):** IPC `submitApproval` → DB → UI reload.
+3. **Approvals (agent/harness):** HTTP `POST /v1/approvals` → same `DatabaseManager.submitApproval` → emit `media:updated` (and optionally a new `queue:updated` channel) so the Gallery stays central.
+
+**Concurrency:** all DB writes go through the single Electron-main `DatabaseManager` (WAL already enabled). HTTP and IPC serialize naturally on the main process.
+
+**When Electron is not running:** CLI can still stage + seed via Electron-as-Node ingest (existing `push:media` path). Agents that need live queue/approvals must start Electron (`npm run review:electron`). HTTP returns connection refused → MCP surfaces a clear “DAM not running” error.
+
+### Phase 2+ — optional cloud (phased, not Phase 1)
+
+| Option | When | Notes |
+|--------|------|-------|
+| **A. Tunnel** (Cloudflare Tunnel / ngrok / Tailscale) to localhost `:7842` | Cloud Cursor agents need the same Mac DAM | Same auth token; TLS at tunnel; no schema change |
+| **B. Cloud DB mirror** (Supabase stub already named in `docs/WEB-SYNC.md`) | Multi-device / Electron offline | Electron remains review UI; sync transport LWW by `revision`/`updatedAt` as in web scaffold; blob sync still separate |
+
+Phase 1 HTTP shapes should stay stable so Phase 2 clients only change **base URL + auth transport**.
+
+---
+
+## Auth (localhost)
+
+**Model:** bearer token, loopback only.
+
+1. Bind: `http://127.0.0.1:${DAM_API_PORT:-7842}` only (refuse non-loopback).
+2. On first boot (if missing): generate 32-byte hex token → write `$userData/dam-api-token` (mode `0600`) and log once: `[api] token file: …`.
+3. Every request except `GET /v1/health` requires:
+   ```http
+   Authorization: Bearer <token>
+   ```
+4. Overrides: `DAM_API_TOKEN` env wins over file (CI / scripted agents).
+5. CORS: not required for loopback MCP/curl; if added, allow only `null` / `http://127.0.0.1:*`.
+6. Kill switch: `DAM_API_DISABLE=1` skips server start (packaged demos / verify).
+
+MCP config reads the token file (or env) and attaches the header. Comfy/scripts use the same.
+
+**Not Phase 1:** OAuth, mTLS, multi-user roles. `reviewedBy` is a free string on approvals (e.g. `cursor-agent`, `dave`, `comfy-harness`).
+
+---
+
+## Endpoints (HTTP v1)
+
+Base: `http://127.0.0.1:7842/v1`
+
+Mirror existing IPC / DB types from `DatabaseManager` / `DamApi`. JSON request/response. Errors: `{ "ok": false, "error": "…" }` with 4xx/5xx.
+
+### Health / meta
+
+| Method | Path | Maps to | Notes |
+|--------|------|---------|-------|
+| `GET` | `/health` | `healthCheck` | No auth. `{ ok, dbReady, stats, apiVersion, electronPid }` |
+| `GET` | `/projects` | `getMediaProjects` / `listMediaProjectSlugs` | Registered `manifest.projects[]` slugs |
+
+### Project sections
+
+| Method | Path | Body | Behavior |
+|--------|------|------|----------|
+| `POST` | `/projects` | `{ "slug": "my-client" }` | Ensures dirs + `manifest.projects` entry (same as `npm run dam:section -- --project <slug>`). Prefer shelling to `scripts/push-media.mjs --create-section` **or** calling shared helpers extracted from it — do not fork section layout. Triggers watch/seed + `media:updated`. |
+
+### Assets (push)
+
+| Method | Path | Body | Behavior |
+|--------|------|------|----------|
+| `POST` | `/assets` | See below | **Metadata ingest of already-staged files**, or invoke CLI for staging when `sourcePath` is set. |
+
+**Preferred Phase 1 body (agent already staged via CLI, or absolute path on disk):**
+
+```json
+{
+  "sourcePath": "/abs/comfy/out.png",
+  "partition": "generated",
+  "project": "my-client",
+  "pipeline": "comfy",
+  "parentSourceId": "orig-base-01-irezumi-color-dragon",
+  "batch": "run-42",
+  "tags": ["comfyui", "gen"],
+  "title": "Hero take 14",
+  "cloudUrl": null,
+  "assetId": null
+}
+```
+
+Server runs the same staging contract as `push:media` (copy/hardlink → `assets/media/…` + web mirror → manifest upsert → `seedMediaFromManifest` / `ingestAssetIfAbsent`) then returns `ReviewQueueRow`.
+
+**Alternate (DB-only, rare):** body shaped like `IngestAssetInput` when bytes are already under an allowed media root — maps to `db.ingestAsset` / `ingestAssetIfAbsent`.
+
+Agents that already have the skill should keep:
+
+```bash
+DAMMWT_ROOT=/Users/administrator/src/DAMMWT npm run push:media --prefix "$DAMMWT_ROOT" -- \
+  --file /abs/out.png --partition generated --project my-client --pipeline comfy
+```
+
+HTTP `/assets` is for harnesses that want one round-trip without spawning npm.
+
+### Queue / decisions
+
+| Method | Path | Query / body | Maps to |
+|--------|------|--------------|---------|
+| `GET` | `/queue` | `?status=pending\|love\|keep\|reject\|changesRequested` optional; `?project=<slug>` filter | `getReviewQueue` (+ project filter in service layer) |
+| `GET` | `/queue/stats` | — | `getQueueStats` |
+| `GET` | `/assets/:assetId` | — | `getByAssetId` |
+| `POST` | `/approvals` | `{ "assetId", "decision": "love\|keep\|reject\|changesRequested", "reviewedBy", "notes?" }` | `submitApproval` |
+| `POST` | `/assets/:assetId/resubmit` | `{ "sourceIdentifier", "previewUrl" }` | `resubmitAsset` |
+
+After any mutating call that changes queue visibility, main **must** `webContents.send('media:updated', …)` (reuse `broadcastMediaUpdated`) so the Gallery auto-refreshes without Dave clicking Refresh.
+
+### Lineage
+
+| Method | Path | Behavior |
+|--------|------|----------|
+| `GET` | `/assets/:assetId/lineage` | Walk `parentSourceId` to SoT (`null` parent). Return `{ asset, chain: ReviewQueueRow[], siblings: ReviewQueueRow[] }` where siblings share the same `parentSourceId`. |
+| `GET` | `/assets/:assetId/history` | `getAssetVersionHistory` |
+
+Lineage rules match `docs/MEDIA-INVENTORY.md` / web `buildLineageChain()`.
+
+### Open / reveal (local OS)
+
+| Method | Path | Body | Maps to |
+|--------|------|------|---------|
+| `POST` | `/shell/reveal` | `{ "localPath": "…" }` | `safeRevealInFolder` + `allowedMediaRoots` |
+| `POST` | `/shell/open` | `{ "localPath": "…" }` | `safeOpenPath` |
+| `POST` | `/shell/open-cloud` | `{ "cloudUrl": "…" }` | `safeOpenExternal` (http/https only) |
+
+Same security as IPC: path must resolve under `assets/media` (and optional `web/public/media`). Returns `{ ok, error? }`.
+
+### Refresh
+
+| Method | Path | Maps to |
+|--------|------|---------|
+| `POST` | `/media/refresh` | `reseedFromManifest('refresh')` |
+
+---
+
+## MCP tools (thin wrapper)
+
+Package: stdio MCP server that only calls the HTTP API (env `DAM_API_BASE`, `DAM_API_TOKEN`).
+
+| Tool | HTTP | Typical agent use |
+|------|------|-------------------|
+| `dam_health` | `GET /v1/health` | Fail fast if Electron down |
+| `dam_create_project` | `POST /v1/projects` | New generative job section |
+| `dam_push_asset` | `POST /v1/assets` | After Comfy/export |
+| `dam_list_queue` | `GET /v1/queue` | What Dave still needs to review |
+| `dam_submit_decision` | `POST /v1/approvals` | Agent-assisted triage **or** read-back after human decide (agents usually list; humans decide in UI — tool still required for harness automation) |
+| `dam_get_lineage` | `GET /v1/assets/:id/lineage` | Steer next gen from SoT / siblings |
+| `dam_reveal_file` | `POST /v1/shell/reveal` | Open Finder on plate |
+| `dam_open_file` | `POST /v1/shell/open` | Open in Preview / editor |
+| `dam_refresh` | `POST /v1/media/refresh` | Force ingest if watch missed |
+
+Cursor MCP config (sketch):
+
+```json
+{
+  "mcpServers": {
+    "dammwt": {
+      "command": "node",
+      "args": ["/Users/administrator/src/DAMMWT/mcp/dist/index.js"],
+      "env": {
+        "DAM_API_BASE": "http://127.0.0.1:7842",
+        "DAM_API_TOKEN_FILE": "/Users/administrator/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token"
+      }
+    }
+  }
+}
+```
+
+---
+
+## CLI (unchanged primary for bytes)
+
+Keep as the durable staging SoT:
+
+| Command | Role |
+|---------|------|
+| `npm run dam:section -- --project <slug>` | Create project tree + registry |
+| `npm run push:media -- --file … --partition … [--project …]` | Stage + ingest |
+| `npm run review:electron` | Rebuild/launch Gallery (central viewpoint) |
+| `SEED=1 npm run review:electron` | Force seed when schema/links stale |
+
+Optional Phase 1.1: `npm run dam:api -- approvals …` thin CLI over HTTP for shell harnesses that prefer not to curl.
+
+---
+
+## How Electron stays the central viewpoint
+
+1. **Dave reviews in Gallery** (love / keep / reject + notes; keys `1`/`2`/`3`/`n`). Product naming: **MWT DAM**.
+2. Agents/Comfy **push into** project sections and **read** queue/lineage/decisions; they do not become a second review UI.
+3. Auto-refresh already exists on this branch (`cursor/electron-auto-refresh-d536`):
+   - Manifest watch → `seedMediaFromManifest` → `media:updated`
+   - Window focus / visibility + Refresh control
+4. Phase 1 extends the same broadcast to **HTTP mutations** (approvals, API pushes) so the open window updates without relaunch.
+5. After meaningful Electron/API code changes, agents still run `npm run review:electron` per workspace rules so Dave can verify the live window.
+
+**Recommended agent loop:**
+
+```
+dam_create_project → (Comfy run) → dam_push_asset(s)
+  → Dave sees tiles appear (auto-refresh)
+  → Dave love/keep/reject in UI
+  → agent dam_list_queue / dam_get_lineage → next generation steered by loves + SoT
+```
+
+---
+
+## Concrete paths & defaults (this machine)
+
+| Item | Value |
+|------|-------|
+| Repo | `/Users/administrator/src/DAMMWT` |
+| Media root | `assets/media/` (+ `web/public/media/`) |
+| Manifest | `assets/media/manifest.json` |
+| DB | `~/Library/Application Support/@13djteq/mwt-dam-mvp/dam.db` (`DAM_DB_PATH` override) |
+| API bind | `127.0.0.1:7842` |
+| Token file | `…/mwt-dam-mvp/dam-api-token` |
+| Env | `DAMMWT_ROOT`, `DAM_DB_PATH`, `DAM_API_PORT`, `DAM_API_TOKEN`, `DAM_API_DISABLE` |
+
+---
+
+## Implementation sketch (ordered)
+
+1. Extract `DamService` from IPC handler bodies (queue, approve, lineage helpers, refresh, shell).
+2. Point `registerIpcHandlers` at `DamService` (behavior-preserving; `npm run verify` green).
+3. Add `localServer.ts`; start after DB in `bootstrap()`; broadcast on mutations.
+4. Implement lineage query on `DatabaseManager` (`getLineage(assetId)`).
+5. Wire `POST /projects` + `POST /assets` to existing push-media helpers (extract shared module from `scripts/push-media.mjs` if needed, or `spawn` CLI for Phase 1 speed).
+6. Add `mcp/` thin client + README for Cursor config.
+7. Docs: link from `README.md`; update `docs/WEB-SYNC.md` “open decision” → Electron speaks localhost API.
+8. Verify: extend gallery verify or add `verify:api` hitting health + approve round-trip under Electron-as-test harness.
+
+---
+
+## Acceptance criteria (Phase 1 done when)
+
+1. **With Electron running**, `curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7842/v1/health` returns `ok: true` and queue stats.
+2. **Unauthenticated** mutating calls return `401`; binding is loopback-only.
+3. `POST /v1/projects` with slug `agent-sync-probe` creates `assets/media/projects/agent-sync-probe/{originals,tattoos,generated}/` and shows under Gallery **Projects** (empty section OK) after auto-refresh — no relaunch required if app already open.
+4. `POST /v1/assets` (or CLI `push:media` then `GET /v1/queue?status=pending`) shows the new row in the **open** Gallery window via `media:updated` within ~1s of watch debounce.
+5. `POST /v1/approvals` with `love|keep|reject` + notes updates SQLite + `ApprovalHistory`; Gallery selection/stats refresh without manual Refresh.
+6. `GET /v1/assets/:id/lineage` returns SoT chain + siblings consistent with `parentSourceId` rules in `docs/MEDIA-INVENTORY.md`.
+7. `POST /v1/shell/reveal` opens Finder only for paths under allowed media roots; outside paths fail safely.
+8. MCP tools listed above succeed against a live app for: create section → push asset → list queue → get lineage → reveal.
+9. `DAM_API_DISABLE=1` / Electron quit → MCP/curl fail with a clear “DAM API unreachable” message (no hanging writers).
+10. `npm run verify` still passes; existing IPC Gallery path unchanged for humans.
+11. README documents: start Electron → token location → example curl + MCP config.
+12. Cloud agents are **documented as Phase 2** (tunnel same API **or** cloud DB) — not required to pass Phase 1.
+
+---
+
+## Phase map (one glance)
+
+| Phase | What ships | Clients |
+|-------|------------|---------|
+| **1 (this doc)** | Localhost HTTP in Electron + MCP thin wrapper + existing CLI | Same-Mac Cursor, Comfy, scripts |
+| **2** | Tunnel to Phase 1 API **or** Supabase mirror + auth hardening | Cloud Cursor agents |
+| **3** | Optional blob sync / multi-reviewer roles | Multi-device creative team |
+
+---
+
+## Related docs
+
+- Gallery / media SoT: `docs/MEDIA-INVENTORY.md`
+- Web sync scaffold (not Phase 1 SoT): `docs/WEB-SYNC.md`
+- Push skill: `.cursor/skills/dammwt-push-media/SKILL.md`
+- IPC contract: `src/ipc/handlers.ts`
+- Auto-refresh: `src/main.ts` (`media:updated`)
