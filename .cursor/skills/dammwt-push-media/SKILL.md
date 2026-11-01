@@ -14,6 +14,32 @@ description: >-
 **Canonical personal skill:** `~/.agents/skills/dammwt-push-media/SKILL.md`  
 (also on this machine: `~/.cursor/skills/dammwt-push-media/`)
 
+## Electron review push (4 steps)
+
+Default recipe for **Gallery → Projects** (absolute paths; set `DAMMWT_ROOT`):
+
+```bash
+export DAMMWT_ROOT="${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
+```
+
+1. **Start Electron** — `cd "$DAMMWT_ROOT" && npm run review:electron` (skip if already up; `SEED=1` only if DB/links look stale).
+2. **Create section** — `npm run dam:section --prefix "$DAMMWT_ROOT" -- --project my-client` (or `bash ~/.agents/skills/dammwt-push-media/scripts/create-section.sh --project my-client`).
+3. **Push** — absolute `--file` / `--dir` + `--partition` + `--project my-client` via `push:media` / `push-media.sh`.
+4. **See in Projects** — Gallery **Projects → my-client** (status **All**); Refresh / manifest watch if needed.
+
+```bash
+cd "$DAMMWT_ROOT"
+npm run review:electron
+
+npm run dam:section --prefix "$DAMMWT_ROOT" -- --project my-client
+
+npm run push:media --prefix "$DAMMWT_ROOT" -- \
+  --file "/absolute/path/to/asset.png" \
+  --partition generated \
+  --project my-client
+# → Projects → my-client
+```
+
 ## Create section then push (isolate project assets)
 
 ```bash

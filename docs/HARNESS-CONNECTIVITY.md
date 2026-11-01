@@ -1,5 +1,7 @@
 # Harness connectivity (agent-agnostic)
 
+**Push for review:** start Electron (`npm run review:electron` from `DAMMWT_ROOT`) → create section (`dam:section --project <slug>`) → push (`push:media --project <slug>` with absolute paths) → open Gallery **Projects → \<slug\>** (status **All**). Full recipe: `dammwt-push-media` skill.
+
 **HTTP is the universal contract.** Any agent, IDE, script, or Comfy node that can call localhost REST can drive MWT DAM. MCP and CLI are optional adapters over the same routes — not required.
 
 Electron must be running (Gallery). The API shares the same `DamService` + SQLite as IPC. Spec: [`openapi-dam-api.yaml`](./openapi-dam-api.yaml). Architecture: [`AGENT-ELECTRON-SYNC.md`](./AGENT-ELECTRON-SYNC.md).
