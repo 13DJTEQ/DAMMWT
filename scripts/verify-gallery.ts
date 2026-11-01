@@ -130,6 +130,25 @@ async function main(): Promise<void> {
       throw new Error(`Love notes missing: ${JSON.stringify(loveHistory)}`);
     }
 
+    // Notes remain writable after Love (status no longer pending).
+    const postLoveNotes = await viaIpc.updateApprovalNotes({
+      assetId: 'gal-a',
+      notes: 'Hero composition — post-love steer',
+      reviewedBy: 'verify-gallery',
+    });
+    if (postLoveNotes.decision !== 'love') {
+      throw new Error(
+        `updateApprovalNotes should target love row, got ${postLoveNotes.decision}`
+      );
+    }
+    if (postLoveNotes.notes !== 'Hero composition — post-love steer') {
+      throw new Error(`Post-love notes not persisted: ${JSON.stringify(postLoveNotes)}`);
+    }
+    const loveStill = db.getByAssetId('gal-a');
+    if (loveStill?.status !== 'love') {
+      throw new Error('updateApprovalNotes must not change status');
+    }
+
     const loved = db.getByAssetId('gal-a');
     if (!loved?.archiveScheduledAt) {
       throw new Error('love should schedule archive like keep');
@@ -165,6 +184,21 @@ async function main(): Promise<void> {
     const dKeep = dHistory.find((h) => h.decision === 'keep');
     if (!dKeep || dKeep.notes !== 'borderline keep') {
       throw new Error(`Notes draft not persisted: ${JSON.stringify(dHistory)}`);
+    }
+
+    // Controller saveNotes after keep (decided asset).
+    controller.selectAsset('gal-d');
+    await controller.refresh();
+    controller.setNotesDraft('borderline keep — amended');
+    await controller.saveNotes({ reviewedBy: 'verify@mwt.com' });
+    const dHistory2 = await api.getAssetVersionHistory('gal-d');
+    const dKeep2 = dHistory2.find((h) => h.decision === 'keep');
+    if (!dKeep2 || dKeep2.notes !== 'borderline keep — amended') {
+      throw new Error(`saveNotes after keep failed: ${JSON.stringify(dHistory2)}`);
+    }
+    snap = controller.getSnapshot();
+    if (snap.notesDraft !== 'borderline keep — amended') {
+      throw new Error(`notesDraft after saveNotes: ${JSON.stringify(snap.notesDraft)}`);
     }
 
     let renderer: TestRenderer.ReactTestRenderer;
@@ -223,6 +257,9 @@ async function main(): Promise<void> {
     }
     if (!text.includes('Love') || !text.includes('Keep') || !text.includes('Reject')) {
       throw new Error('App render missing Gallery decision chrome');
+    }
+    if (!text.includes('Save notes')) {
+      throw new Error('App render missing Save notes control');
     }
     if (!text.includes('Source of Truth')) {
       throw new Error('App render missing Originals / Source of Truth partition chrome');

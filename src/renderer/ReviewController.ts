@@ -17,6 +17,7 @@ import {
   type ReviewQueueRow,
   type ReviewStatus,
   type SubmitApprovalInput,
+  type UpdateApprovalNotesInput,
 } from './damApi';
 
 export type QueueFilter = ReviewStatus | 'all';
@@ -209,6 +210,10 @@ export class ReviewController {
 
       if (this.selectedAssetId) {
         this.history = await this.api.getAssetVersionHistory(this.selectedAssetId);
+        this.notesDraft = this.prefillNotesFromHistory(
+          this.history,
+          this.notesDraft
+        );
       } else {
         this.history = [];
       }
@@ -248,8 +253,54 @@ export class ReviewController {
         reviewedBy: input.reviewedBy,
         notes,
       });
-      this.notesDraft = '';
+      // Keep draft so notes stay editable after love/keep/reject.
+      this.notesDraft = notes ?? '';
       await this.refresh();
+      return updated;
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : String(err);
+      this.emit();
+      throw err;
+    } finally {
+      this.busy = false;
+      this.emit();
+    }
+  }
+
+  /**
+   * Save notes for the selected (or given) asset without changing status.
+   * Works after love / keep / reject / changesRequested.
+   */
+  async saveNotes(
+    input: Omit<UpdateApprovalNotesInput, 'assetId' | 'notes'> & {
+      assetId?: string;
+      notes?: string;
+    } = {}
+  ): Promise<ApprovalHistoryRow> {
+    const assetId = input.assetId ?? this.selectedAssetId;
+    if (!assetId) {
+      throw new Error('No asset selected for notes');
+    }
+    if (!this.api.updateApprovalNotes) {
+      throw new Error('updateApprovalNotes is not available on damApi');
+    }
+
+    const notes =
+      input.notes !== undefined ? input.notes : this.notesDraft;
+
+    this.busy = true;
+    this.error = null;
+    this.emit();
+
+    try {
+      const updated = await this.api.updateApprovalNotes({
+        assetId,
+        notes,
+        reviewedBy: input.reviewedBy,
+      });
+      this.notesDraft = notes;
+      this.history = await this.api.getAssetVersionHistory(assetId);
+      this.emit();
       return updated;
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
@@ -308,11 +359,33 @@ export class ReviewController {
   private async loadHistory(assetId: string): Promise<void> {
     try {
       this.history = await this.api.getAssetVersionHistory(assetId);
+      if (this.selectedAssetId === assetId) {
+        this.notesDraft = this.prefillNotesFromHistory(
+          this.history,
+          this.notesDraft
+        );
+      }
       this.emit();
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
       this.emit();
     }
+  }
+
+  /**
+   * When the draft is empty, seed from the latest decision notes so Love
+   * notes remain visible/editable after the status change.
+   */
+  private prefillNotesFromHistory(
+    history: ApprovalHistoryRow[],
+    currentDraft: string
+  ): string {
+    if (currentDraft.trim()) return currentDraft;
+    const reversed = [...history].reverse();
+    const withNotes =
+      reversed.find((h) => h.decision !== 'pending' && h.notes) ??
+      reversed.find((h) => h.notes);
+    return withNotes?.notes ?? '';
   }
 
   private emit(): void {

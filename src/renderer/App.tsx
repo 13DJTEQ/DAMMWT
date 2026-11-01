@@ -130,6 +130,15 @@ export function App({
       .catch(() => undefined);
   };
 
+  const saveNotes = (notes: string): void => {
+    void controller
+      .saveNotes({
+        notes,
+        reviewedBy,
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <div className="app-shell">
       <div className="app-shell__spiral" aria-hidden="true">
@@ -231,6 +240,7 @@ export function App({
             reviewedBy={reviewedBy}
             notes={snap.notesDraft}
             onNotesChange={(notes) => controller.setNotesDraft(notes)}
+            onSaveNotes={saveNotes}
             onDecide={decide}
             onRevealParent={(assetId) => {
               void controller.revealAsset(assetId).catch(() => undefined);

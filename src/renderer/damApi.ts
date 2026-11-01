@@ -10,6 +10,7 @@ import type {
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
+  UpdateApprovalNotesInput,
 } from '../database/DatabaseManager';
 import type { ShellActionResult } from '../ipc/shellSafe';
 
@@ -21,6 +22,7 @@ export type {
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
+  UpdateApprovalNotesInput,
 };
 export type { ShellActionResult };
 
@@ -35,6 +37,10 @@ export interface DamApi {
   ingestAsset(input: IngestAssetInput): Promise<ReviewQueueRow>;
   getReviewQueue(status?: ReviewStatus): Promise<ReviewQueueRow[]>;
   submitApproval(input: SubmitApprovalInput): Promise<ReviewQueueRow>;
+  /** Persist notes on latest decision history (works after love/keep/reject). */
+  updateApprovalNotes?(
+    input: UpdateApprovalNotesInput
+  ): Promise<ApprovalHistoryRow>;
   getQueueStats(): Promise<QueueStats>;
   getAssetVersionHistory(assetId: string): Promise<ApprovalHistoryRow[]>;
   resubmitAsset(
@@ -88,6 +94,7 @@ export function createDamApiFromDb(db: {
   ingestAsset(input: IngestAssetInput): ReviewQueueRow;
   getReviewQueue(status?: ReviewStatus): ReviewQueueRow[];
   submitApproval(input: SubmitApprovalInput): ReviewQueueRow;
+  updateApprovalNotes?(input: UpdateApprovalNotesInput): ApprovalHistoryRow;
   getQueueStats(): QueueStats;
   getAssetVersionHistory(assetId: string): ApprovalHistoryRow[];
   resubmitAsset(
@@ -100,6 +107,9 @@ export function createDamApiFromDb(db: {
     ingestAsset: async (input) => db.ingestAsset(input),
     getReviewQueue: async (status) => db.getReviewQueue(status),
     submitApproval: async (input) => db.submitApproval(input),
+    updateApprovalNotes: db.updateApprovalNotes
+      ? async (input) => db.updateApprovalNotes!(input)
+      : undefined,
     getQueueStats: async () => db.getQueueStats(),
     getAssetVersionHistory: async (assetId) => db.getAssetVersionHistory(assetId),
     resubmitAsset: async (assetId, newSourceIdentifier, previewUrl) =>

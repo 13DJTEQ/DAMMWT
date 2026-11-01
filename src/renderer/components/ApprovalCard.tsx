@@ -11,6 +11,8 @@ interface ApprovalCardProps {
   reviewedBy: string;
   notes: string;
   onNotesChange: (notes: string) => void;
+  /** Persist notes without changing status (post-love / keep / reject). */
+  onSaveNotes?: (notes: string) => void;
   onDecide: (decision: GalleryDecision, notes?: string) => void;
   onRevealParent?: (assetId: string) => void;
 }
@@ -48,6 +50,7 @@ export function ApprovalCard({
   reviewedBy,
   notes,
   onNotesChange,
+  onSaveNotes,
   onDecide,
   onRevealParent,
 }: ApprovalCardProps): JSX.Element {
@@ -69,14 +72,27 @@ export function ApprovalCard({
         (target.tagName === 'TEXTAREA' ||
           target.tagName === 'INPUT' ||
           target.isContentEditable);
-      if (typing && event.key !== 'Escape') {
-        if (event.key === 's' && (event.metaKey || event.ctrlKey)) {
+
+      if (event.key === 's' && (event.metaKey || event.ctrlKey)) {
+        if (!busy && onSaveNotes) {
           event.preventDefault();
+          onSaveNotes(notes);
         }
         return;
       }
 
+      if (typing && event.key !== 'Escape') {
+        return;
+      }
+
       if (busy) return;
+
+      if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        notesRef.current?.focus();
+        return;
+      }
+
       if (asset.status !== 'pending' && asset.status !== 'changesRequested') return;
 
       if (event.key === '1') {
@@ -88,15 +104,12 @@ export function ApprovalCard({
       } else if (event.key === '3') {
         event.preventDefault();
         onDecide('reject', notes);
-      } else if (event.key === 'n' || event.key === 'N') {
-        event.preventDefault();
-        notesRef.current?.focus();
       }
     };
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [asset, busy, notes, onDecide]);
+  }, [asset, busy, notes, onDecide, onSaveNotes]);
 
   if (!asset) {
     return (
@@ -111,6 +124,7 @@ export function ApprovalCard({
   const tags = parseTags(asset.tags);
   const canDecide =
     !busy && (asset.status === 'pending' || asset.status === 'changesRequested');
+  const canEditNotes = !busy;
   const displayTitle = asset.title?.trim() || asset.assetId;
   const partition = partitionLabel(asset.partition);
   const localPath = resolveLocalPath(asset);
@@ -308,12 +322,25 @@ export function ApprovalCard({
           className="gallery-notes__input"
           rows={3}
           value={notes}
-          disabled={!canDecide}
+          disabled={!canEditNotes}
           placeholder="Steering notes for this decision…"
           aria-label="Gallery notes"
           onChange={(event) => onNotesChange(event.target.value)}
         />
       </label>
+      {onSaveNotes ? (
+        <div className="gallery-notes__actions">
+          <button
+            type="button"
+            className="btn btn--ghost"
+            disabled={!canEditNotes}
+            title="Save notes (⌘S / Ctrl+S)"
+            onClick={() => onSaveNotes(notes)}
+          >
+            Save notes
+          </button>
+        </div>
+      ) : null}
 
       <div className="decision-row" role="group" aria-label="Gallery decisions">
         <button
@@ -360,16 +387,16 @@ export function ApprovalCard({
       </div>
 
       <p className="panel-hint">
-        Keys: 1 love · 2 keep · 3 reject · n notes
+        Keys: 1 love · 2 keep · 3 reject · n notes · ⌘S save notes
       </p>
 
       {!canDecide && !busy ? (
         <p className="panel-hint">
-          This asset is already {asset.status}. Pick a pending item or wait for a
-          resubmit.
+          This asset is already {asset.status}. Decision buttons are locked; notes
+          can still be edited and saved.
         </p>
       ) : null}
-      {busy ? <p className="panel-hint">Saving decision…</p> : null}
+      {busy ? <p className="panel-hint">Saving…</p> : null}
     </section>
   );
 }

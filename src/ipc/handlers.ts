@@ -6,6 +6,7 @@ import type {
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
+  UpdateApprovalNotesInput,
 } from '../database/DatabaseManager';
 import {
   DamService,
@@ -25,6 +26,7 @@ export const IPC_CHANNELS = [
   'ingestAsset',
   'getReviewQueue',
   'submitApproval',
+  'updateApprovalNotes',
   'getQueueStats',
   'getAssetVersionHistory',
   'resubmitAsset',
@@ -77,6 +79,7 @@ export interface DamApi {
   ingestAsset(input: IngestAssetInput): Promise<ReviewQueueRow>;
   getReviewQueue(status?: ReviewStatus): Promise<ReviewQueueRow[]>;
   submitApproval(input: SubmitApprovalInput): Promise<ReviewQueueRow>;
+  updateApprovalNotes(input: UpdateApprovalNotesInput): Promise<ApprovalHistoryRow>;
   getQueueStats(): Promise<QueueStats>;
   getAssetVersionHistory(assetId: string): Promise<ApprovalHistoryRow[]>;
   resubmitAsset(
@@ -110,6 +113,8 @@ export function createDamApi(invoke: InvokeFn): DamApi {
       invoke('getReviewQueue', status) as Promise<ReviewQueueRow[]>,
     submitApproval: (input) =>
       invoke('submitApproval', input) as Promise<ReviewQueueRow>,
+    updateApprovalNotes: (input) =>
+      invoke('updateApprovalNotes', input) as Promise<ApprovalHistoryRow>,
     getQueueStats: () => invoke('getQueueStats') as Promise<QueueStats>,
     getAssetVersionHistory: (assetId) =>
       invoke('getAssetVersionHistory', assetId) as Promise<ApprovalHistoryRow[]>,
@@ -168,6 +173,10 @@ export function registerIpcHandlers(
 
   ipcMain.handle('submitApproval', (_event, input) => {
     return service.submitApproval(input as SubmitApprovalInput);
+  });
+
+  ipcMain.handle('updateApprovalNotes', (_event, input) => {
+    return service.updateApprovalNotes(input as UpdateApprovalNotesInput);
   });
 
   ipcMain.handle('getQueueStats', () => {

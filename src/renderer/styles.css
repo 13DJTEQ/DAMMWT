@@ -755,6 +755,12 @@ button {
   opacity: 0.5;
 }
 
+.gallery-notes__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.5rem 0 1rem;
+}
+
 .gallery-queue-list {
   list-style: none;
   margin: 0;

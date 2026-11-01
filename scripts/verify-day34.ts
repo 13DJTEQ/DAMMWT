@@ -44,7 +44,7 @@ async function main(): Promise<void> {
     });
 
     const controller = new ReviewController(api);
-    await controller.refresh();
+    await controller.setFilter('pending');
 
     let snap = controller.getSnapshot();
     if (snap.queue.length !== 2) {

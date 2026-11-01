@@ -49,6 +49,13 @@ export interface SubmitApprovalInput {
   notes?: string;
 }
 
+/** Update notes on the latest decision history row (works after love/keep/reject). */
+export interface UpdateApprovalNotesInput {
+  assetId: string;
+  notes: string;
+  reviewedBy?: string;
+}
+
 export interface ReviewQueueRow {
   id: number;
   assetId: string;
@@ -501,6 +508,56 @@ export class DatabaseManager {
          ORDER BY version ASC, reviewedAt ASC, id ASC`
       )
       .all(row.id) as ApprovalHistoryRow[];
+  }
+
+  /**
+   * Persist notes without changing status. Updates the latest history row that
+   * matches the asset's current status (e.g. love after Love), falling back to
+   * the latest non-pending row, then any latest row (pending draft).
+   */
+  updateApprovalNotes(input: UpdateApprovalNotesInput): ApprovalHistoryRow {
+    const row = this.getByAssetId(input.assetId);
+    if (!row) {
+      throw new Error(`Unknown assetId: ${input.assetId}`);
+    }
+
+    const history = this.getAssetVersionHistory(input.assetId);
+    if (history.length === 0) {
+      throw new Error(`No approval history for asset ${input.assetId}`);
+    }
+
+    const reversed = [...history].reverse();
+    const target =
+      reversed.find((h) => h.decision === row.status) ??
+      reversed.find((h) => h.decision !== 'pending') ??
+      reversed[0];
+
+    const notes = input.notes;
+    if (input.reviewedBy !== undefined && input.reviewedBy.trim()) {
+      this.db
+        .prepare(
+          `UPDATE ApprovalHistory
+           SET notes = @notes, reviewedBy = @reviewedBy
+           WHERE id = @id`
+        )
+        .run({
+          notes,
+          reviewedBy: input.reviewedBy.trim(),
+          id: target.id,
+        });
+    } else {
+      this.db
+        .prepare(`UPDATE ApprovalHistory SET notes = @notes WHERE id = @id`)
+        .run({ notes, id: target.id });
+    }
+
+    const updated = this.db
+      .prepare(`SELECT * FROM ApprovalHistory WHERE id = ?`)
+      .get(target.id) as ApprovalHistoryRow | undefined;
+    if (!updated) {
+      throw new Error(`Failed to reload approval history id ${target.id}`);
+    }
+    return updated;
   }
 
   getByAssetId(assetId: string): ReviewQueueRow | undefined {

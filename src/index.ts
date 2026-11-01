@@ -15,6 +15,7 @@ export {
   ARCHIVE_ON_DECISIONS,
   type IngestAssetInput,
   type SubmitApprovalInput,
+  type UpdateApprovalNotesInput,
   type ReviewQueueRow,
   type ApprovalHistoryRow,
   type ArchiveJobRow,

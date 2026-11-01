@@ -15,6 +15,7 @@ import type {
   ReviewQueueRow,
   ReviewStatus,
   SubmitApprovalInput,
+  UpdateApprovalNotesInput,
 } from '../database/DatabaseManager';
 import {
   safeOpenExternal,
@@ -42,6 +43,7 @@ export interface RefreshMediaResult {
 
 export type DamMutationKind =
   | 'approval'
+  | 'notes'
   | 'ingest'
   | 'resubmit'
   | 'refresh'
@@ -189,6 +191,12 @@ export class DamService {
     const row = this.db.submitApproval(input);
     this.emit({ kind: 'approval', assetId: row.assetId });
     return row;
+  }
+
+  updateApprovalNotes(input: UpdateApprovalNotesInput): ApprovalHistoryRow {
+    const history = this.db.updateApprovalNotes(input);
+    this.emit({ kind: 'notes', assetId: input.assetId });
+    return history;
   }
 
   getQueueStats(): QueueStats {
