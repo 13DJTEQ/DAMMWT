@@ -33,6 +33,16 @@ SEED=1 npm run review:electron
 
 `review:electron` rebuilds `better-sqlite3` for the Electron ABI, builds the app, kills any prior DAMMWT Electron from this repo, and starts a live window (title often **MWT DAM — Gallery**). Every launch idempotently ingests new manifest rows (including `projects/<slug>/…`). While the app is open, `push:media` / manifest changes also auto-ingest (watch → seed → Gallery refresh); focus the window or click **Refresh** if needed. Project sections from `dam:section` appear under **Projects** even before assets are pushed.
 
+### Quick launch (macOS)
+
+| How | Path / command |
+|-----|----------------|
+| Double-click `.app` (Dock-friendly) | `~/Applications/MWT DAM.app` (symlink also on Desktop) |
+| Double-click `.command` | `scripts/launch-dam.command` or Desktop `launch-dam.command` |
+| Terminal alias | `source scripts/shell-alias-dam.sh` then type `dam` |
+
+Drag **MWT DAM.app** to the Dock for one-click rebuild + Gallery launch. First Finder open of a `.command` may ask to allow Terminal.
+
 ## Localhost DAM API (harness-agnostic)
 
 With Electron running, main serves a **loopback-only** HTTP API on `127.0.0.1:7842` (shared `DamService` + SQLite — same process as IPC). **HTTP is the universal contract** for Claude, Cursor, Grok, Hermes, Comfy, and scripts; MCP/CLI are optional adapters.
