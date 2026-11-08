@@ -3,6 +3,7 @@ title: "feat: Hermes plugin for Electron DAM autonomous MVP"
 type: feat
 date: 2026-11-07
 date_time: 2026-11-07-1635
+deepened: 2026-11-07
 artifact_contract: ce-unified-plan/v1
 product_contract_source: ce-plan-bootstrap
 execution: code
@@ -89,16 +90,17 @@ Harness skills (`dammwt-harness`) already document curl/`dam:decide` against Ele
 
 #### Deferred to Follow-Up Work
 
-- Hermes plugin-catalog PR / official catalog pin.
+- Hermes plugin-catalog PR / official catalog pin (local `hermes plugins validate` already matches the admission gate).
 - Cloud tunnel or multi-device sync (Phase 2 in `docs/AGENT-ELECTRON-SYNC.md`).
 - Multipart HTTP upload replacing `push:media` as primary bytes path.
-- Portable Agent Plugins v1 dual package at repo root (see KTD1 / non-goals).
+- Portable Agent Plugins v1 dual package (root `plugin.json` skills+MCP adapter) — separate follow-up if multi-harness single-folder distribution is required (see KTD1).
 
 #### Non-goals
 
 - Second SQLite writer or headless DamService as a long-running alternative to Electron for MVP.
 - Replacing Gallery with a Hermes-native review UI.
 - LAN bind (`0.0.0.0`) or multi-tenant auth.
+- Relying on `./.hermes/plugins/` project-local discovery for session tools (gateway does not load it).
 - Reopening session-settled product decisions below.
 
 ### Key Decisions (product)
@@ -113,7 +115,7 @@ Harness skills (`dammwt-harness`) already document curl/`dam:decide` against Ele
 
 - Phase 1 API already implemented (`src/api/localServer.ts`, `src/api/DamService.ts`, `mcp/`, `scripts/dam-decide.mjs`, `docs/openapi-dam-api.yaml`).
 - Launch paths: `npm run review:electron`, `scripts/launch-dam.command`, optional Desktop `MWT DAM.app`.
-- Local Hermes CLI with `hermes plugins validate|doctor|install|enable`.
+- Local Hermes CLI with `hermes plugins validate|doctor|install|enable` (install identifiers: catalog name, Git URL / `owner/repo[/subdir]`, or `file://` local URL — not a bare relative filesystem path).
 - Env contract in `docs/DAM-HARNESS.md` (`DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` / `DAM_API_TOKEN_FILE`).
 
 ### Outstanding Questions
@@ -124,26 +126,28 @@ Harness skills (`dammwt-harness`) already document curl/`dam:decide` against Ele
 
 - `docs/AGENT-ELECTRON-SYNC.md`, `docs/HARNESS-CONNECTIVITY.md`, `docs/DAM-HARNESS.md`, `docs/openapi-dam-api.yaml`
 - Existing skills: `.cursor/skills/dammwt-harness/`, mirrors under `~/.agents/skills/` and `~/.hermes/skills/`
-- Hermes local docs: `~/.hermes/hermes-agent/website/docs/developer-guide/plugins/index.md`, `…/user-guide/features/plugins.md`
-- External: NousResearch hermes-agent plugin packaging; issue noting native `plugin.yaml` + foreign `plugin.json` install conflict; hermes-official-plugins layout
+- Official Hermes plugins guide: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins (local mirror `~/.hermes/hermes-agent/website/docs/developer-guide/plugins/index.md`; user-facing `…/user-guide/features/plugins.md`; catalog admission `…/plugins/catalog-submission.md`)
+- Local Hermes CLI probed this deepen: **v0.22.5** (`hermes plugins validate|doctor|install|enable`)
 - Peer notes: Phase 1 MCP/`dam:decide` delivered; agent-electron-sync architecture locked
 
 ## Planning Contract
 
 ### Key Technical Decisions
 
-- KTD1. Ship a **native** Hermes plugin (`plugin.yaml` + `register(ctx)` HTTP tools + bundled skills). Do not place a portable `plugin.json` at the same package root. `(rationale: first-class dam_* tools, ensure-up, CLI hooks; avoids install refusal when foreign plugin.json is validated as Agent Plugins v1 — Nous #125927; portable MCP-only packaging remains a follow-up if multi-harness single-folder distribution is required)`
+- KTD1. Ship a **native** Hermes plugin (`plugin.yaml` + `__init__.py` `register(ctx)` + `schemas.py`/`tools.py` + bundled skills via `ctx.register_skill`). Do **not** ship a root portable Agent Plugins v1 `plugin.json` as the package. `(rationale: native is the only path for first-class dam_* tools, ensure-up, optional CLI/slash hooks; portable `plugin.json` is skills+MCP-only and does not replace native. Official validate rule: when both manifests exist, **native `plugin.yaml` always wins**; portable validation applies only to `plugin.json`-only trees. Still omit root `plugin.json` so the package is unambiguously native and CI does not exercise the wrong admission path. Portable dual-package remains Deferred.)`
 - KTD2. Close the **notes-after-decide** gap on the universal contract first: expose `DamService.updateApprovalNotes` as `PATCH /v1/assets/:assetId/notes`, then OpenAPI + MCP + `dam:decide`, then Hermes tools. `(session-settled product KD5 · Governs R6)`
 - KTD3. **Feedback export** is a thin read aggregator over existing queue/history/lineage routes (project-scoped JSON), not a new persistence model or SQLite dump. `(chosen over raw DB export: preserves no-second-writer rule)`
-- KTD4. **Ensure-up** probes `GET /v1/health`; on connection refused, best-effort spawn existing launch script (`review:electron` / `launch-dam.command`) in the background and re-probe with timeout; never open `dam.db` from the plugin. `(chosen over embedding DamService in Hermes: KD2 / R11)`
-- KTD5. Keep plugin code in-repo under `hermes-plugin/dammwt/` (or `plugins/hermes/dammwt/`) as a standalone installable directory; distribution via `hermes plugins install <path|git>` for MVP; catalog submission deferred.
+- KTD4. **Ensure-up** probes `GET /v1/health`; on connection refused, best-effort spawn existing launch script (`review:electron` / `launch-dam.command`) in the background and re-probe with timeout; never open `dam.db` from the plugin. Run ensure/HTTP only inside **tool handlers**, never during `register(ctx)` — Plugin Doctor blocks sockets at registration. `(chosen over embedding DamService in Hermes: KD2 / R11)`
+- KTD5. Keep plugin **source** in-repo under `hermes-plugin/dammwt/` as a standalone directory (third-party product plugins stay out of `NousResearch/hermes-agent` core). Install into the **user** plugins tree for sessions: `hermes plugins install file://$PWD/hermes-plugin/dammwt` (local clone warning), or `owner/repo/hermes-plugin/dammwt` from Git, or copy/symlink into `~/.hermes/plugins/dammwt/`, then `hermes plugins enable dammwt`. Do **not** rely on `./.hermes/plugins/` — gateway sessions do not load project-local plugins. Catalog submission deferred.
 
 ### Assumptions
 
 - A1. Phase 1 HTTP surface listed in OpenAPI is present on the active branch (health, projects, assets, queue, approvals, lineage, shell, refresh). PRs #8/#9 could not be re-fetched (`gh` auth invalid); docs + source are the evidence base.
 - A2. Headless scoping confirmed automatically (pipeline): inferred that “export feedback” means structured JSON of decided/pending rows + notes for steering, not a Notion/Drive upload.
 - A3. Ensure-up on CI agents without a GUI may only assert clear errors + document manual launch; interactive Mac review machines get best-effort auto-launch.
-- A4. Existing `~/.hermes/skills/dammwt-harness` remains valid; the plugin bundles/registers the canonical skill copy rather than deleting personal mirrors overnight.
+- A4. Existing `~/.hermes/skills/dammwt-harness` remains valid; the plugin bundles/registers the canonical skill copy via `ctx.register_skill` rather than deleting personal mirrors overnight.
+- A5. Hermes CLI on review machines is ≥ the docs baseline used for this deepen (v0.22.5 locally); `hermes plugins validate` / `doctor --ci` match the guide's catalog/CI gates.
+- A6. Plugin skills registered with `ctx.register_skill` are **not** auto-listed in the system prompt `<available_skills>` index (official guide) — agents load them via `skill_view("dammwt:<skill>")`. Autonomously runnable loop must be complete through **tools** alone; bundled skills are recipes/context, not the only entrypoint.
 
 ### High-Level Technical Design
 
@@ -201,21 +205,40 @@ sequenceDiagram
 
 #### Packaging layout (Output Structure)
 
+Align with the official native layout (manifest + register + schemas + tools), plus DAM-specific HTTP helpers:
+
 ```text
 hermes-plugin/dammwt/
-├── plugin.yaml
-├── __init__.py          # register(ctx) tools + skills
-├── http_client.py       # bearer + base URL helpers
-├── tools.py             # dam_* handlers → HTTP
-├── ensure.py            # health + launch best-effort
+├── plugin.yaml          # name/version/provides_tools/requires_env[/config_schema]
+├── __init__.py          # register(ctx): tools + ctx.register_skill loops
+├── schemas.py           # LLM-facing tool schemas (official Step 3)
+├── tools.py             # handlers → HTTP (JSON string returns; never raise)
+├── http_client.py       # bearer + DAM_API_BASE helpers (used by handlers only)
+├── ensure.py            # health + launch best-effort (handlers only; not at register)
 ├── skills/
 │   ├── dammwt-harness/SKILL.md
 │   └── dammwt-push-media/SKILL.md   # or thin pointer + scripts
-├── README.md            # install: hermes plugins install ./hermes-plugin/dammwt
-└── tests/               # doctor-friendly smoke if required
+├── README.md            # install/enable/validate/doctor (user plugins path)
+└── tests/               # optional; prefer hermes doctor --ci as primary gate
 ```
 
-No root `plugin.json` beside `plugin.yaml`.
+No root portable `plugin.json`. Optional empty `pyproject.toml` only if Python deps are declared; otherwise declare none (stdlib + urllib preferred for MVP HTTP).
+
+#### Official install / validate / doctor recipe (MVP)
+
+```bash
+# From DAMMWT checkout — validate tree without installing
+hermes plugins validate hermes-plugin/dammwt
+hermes plugins validate hermes-plugin/dammwt --install-deps   # catalog-CI parity when deps exist
+hermes plugins doctor hermes-plugin/dammwt --ci
+
+# Install into ~/.hermes/plugins/ (sessions do not load ./ .hermes/plugins/)
+hermes plugins install "file://$PWD/hermes-plugin/dammwt" --no-enable
+# or: hermes plugins install "file://$PWD/hermes-plugin/dammwt" --enable --yes-deps
+hermes plugins enable dammwt   # name from plugin.yaml; opt-in allow-list
+```
+
+`provides_tools` must list every tool `register()` registers — `hermes plugins validate` fails on declared/registered drift (catalog admission gate).
 
 ### System-Wide Impact
 
@@ -241,8 +264,8 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 
 - Phase 1 is implemented; Hermes today has a **skill**, not a **plugin**.
 - Critical gap for KD5/R6: `updateApprovalNotes` exists in `DamService` / IPC / Gallery but is absent from `localServer.ts`, OpenAPI, MCP, and `dam:decide`.
-- Hermes native plugins are the right packaging for registered tools + bundled skills; portable packages fit MCP+skills-only and install disabled by default.
-- External research shaped KTD1 (native vs portable / dual-manifest conflict).
+- Official plugins guide (2026 deepen): native `plugin.yaml` + `register(ctx)` is the path for tools; portable Agent Plugins v1 is a compatibility adapter for skills + MCP only; when both manifests exist native wins; project-local plugins are not session-loaded; plugins are opt-in (`plugins.enabled`); validate/doctor are the CI gates.
+- External research shaped/refined KTD1 and KTD5 (native packaging + user-plugins install path). See **Research notes — Hermes plugins guide** below.
 
 ### Execution Order
 
@@ -339,22 +362,25 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 
 ### U5. Native Hermes plugin
 
-- **Goal:** Installable Hermes plugin registering dam_* tools and bundling skills.
-- **Requirements:** R9, R1–R8, KTD1, KTD5, KD4
+- **Goal:** Installable Hermes plugin registering dam_* tools and bundling skills per the official native contract.
+- **Requirements:** R9, R1–R8, KTD1, KTD5, KD4 · A6
 - **Dependencies:** U1–U4
-- **Files:** `hermes-plugin/dammwt/**` (new tree per Output Structure), skill markdown copies or register paths, plugin README
+- **Files:** `hermes-plugin/dammwt/**` (new tree per Output Structure), skill markdown copies, plugin README
 - **Approach:**
-  1. Author `plugin.yaml` (`manifest_version` as required by local Hermes), `provides_tools`, env requirements (`DAMMWT_ROOT`, token vars).
-  2. `register(ctx)` tools mirroring MCP names plus `dam_ensure` and `dam_export_feedback`; handlers call HTTP client.
-  3. `ctx.register_skill` for harness + push-media; avoid copying skills into `~/.hermes/skills/` via shutil.
-  4. Document `hermes plugins install <repo-relative-path>`, `enable`, capability consent.
-- **Execution note:** This is mostly packaging; prefer `hermes plugins validate` / `doctor --ci` smoke over deep Python unit tests.
+  1. Author `plugin.yaml`: `name: dammwt` (or `dammwt-dam`), `version`, `description`, exact `provides_tools` list matching every `ctx.register_tool` name, rich `requires_env` for `DAMMWT_ROOT` / `DAM_API_TOKEN` (or `DAM_API_TOKEN_FILE` documented as optional if health-only tools allow), optional `config_schema` for `api_base` defaulting to `http://127.0.0.1:7842`. Prefer **v1** manifest (omit `manifest_version`) unless a v2 field is needed; do not declare `capabilities:` unless a privileged surface is truly required (HTTP adapters need none).
+  2. Split `schemas.py` (LLM schemas) and `tools.py` (handlers). Handler contract from the guide: `(args: dict, **kwargs) -> str` JSON; catch all exceptions; never raise into Hermes.
+  3. `register(ctx)` wires schemas→handlers with a stable `toolset` (e.g. `dammwt`); register tools mirroring MCP names plus `dam_ensure` and `dam_export_feedback`. **No HTTP, no sockets, no ensure-up during `register()`** (doctor blocks sockets).
+  4. Bundle skills with `ctx.register_skill(child.name, skill_md)` over `skills/*/SKILL.md` — namespaced as `dammwt:<skill>`; do not `shutil.copy2` into `~/.hermes/skills/`.
+  5. README: validate/doctor commands; install via `file://` or Git `owner/repo/hermes-plugin/dammwt`; then `hermes plugins enable <name>`; note plugins are disabled until enabled; note project-local `./.hermes/plugins/` is not session-loaded.
+- **Execution note:** Packaging-first; primary proof is `hermes plugins validate` and `hermes plugins doctor … --ci`, not deep Python unit tests. Prefer stdlib HTTP client so CI need not `--install-deps`.
 - **Test scenarios:**
-  - Happy: validate + doctor exit 0 on the plugin directory.
-  - Happy: enabled plugin lists expected tool names.
-  - Error: missing `DAMMWT_ROOT` / unreachable API returns structured tool error (no traceback dump).
-  - Integration: tool `dam_list_queue` against a running API matches curl.
-- **Verification:** README install path works on this machine; no root `plugin.json` conflict.
+  - Happy: `hermes plugins validate hermes-plugin/dammwt` exits 0; declared tools match registered.
+  - Happy: `hermes plugins doctor hermes-plugin/dammwt --ci` exits 0 (register succeeds with no network).
+  - Happy: after install+enable, `/plugins` or `hermes plugins list` shows dammwt tools; `provides_tools` names appear.
+  - Error: missing token / unreachable API from a **tool call** returns structured JSON error (no traceback dump).
+  - Integration: tool `dam_list_queue` against a running API matches curl (AE3 / R9).
+  - Edge: plugin directory without root `plugin.json`; validate still green as native-only.
+- **Verification:** README install path works on this machine; validate+doctor green; no portable root `plugin.json`.
 
 ### U6. Autonomous loop smoke
 
@@ -374,17 +400,18 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 
 ### U7. CI gates
 
-- **Goal:** Non-GUI CI covers API gaps; Hermes validate/doctor runs where Hermes is available.
+- **Goal:** Non-GUI CI covers API gaps; Hermes validate/doctor runs where Hermes is available (same checks catalog CI uses).
 - **Requirements:** R10, AE3
 - **Dependencies:** U1, U5, U6
 - **Files:** `.github/workflows/ci-node.yml` (or dedicated workflow), `package.json` scripts, optional `scripts/ci-hermes-plugin.sh`
 - **Approach:**
   1. Ensure `verify:api` (notes + export) stays in default `npm run verify` / CI node job.
-  2. Add job or step: if `hermes` present (or install pinned), run `hermes plugins validate hermes-plugin/dammwt` and `hermes plugins doctor --ci`.
-  3. Do not require GUI Electron in CI for plugin validate.
+  2. Add job or step when `hermes` is present: `hermes plugins validate hermes-plugin/dammwt` (add `--install-deps` only if the plugin declares Python deps) and `hermes plugins doctor hermes-plugin/dammwt --ci`. Prefer `--json` on validate for machine-readable logs when useful.
+  3. Do not require GUI Electron, enablement, or live `:7842` for validate/doctor (doctor uses temp `HERMES_HOME` and must not need network at register).
 - **Test scenarios:**
   - Happy: CI green on API suite.
-  - Edge: Hermes absent → skip doctor with explicit notice OR use cached hermes—pick one and document (prefer skip with notice on upstream CI if Hermes not in image; local self-hosted runs doctor).
+  - Happy: when Hermes available, validate+doctor exit 0.
+  - Edge: Hermes absent → skip doctor with explicit notice (prefer skip with notice on upstream CI if Hermes not in image; local self-hosted runs doctor).
 - **Verification:** Workflow file references the plugin path; failure blocks merge on API regressions.
 
 ### U8. Docs and skill sync
@@ -394,9 +421,9 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 - **Dependencies:** U5–U7
 - **Files:** `docs/HARNESS-CONNECTIVITY.md`, `docs/DAM-HARNESS.md`, `docs/AGENT-ELECTRON-SYNC.md` (Phase map addendum), `README.md`, `.cursor/skills/dammwt-harness/SKILL.md`, mirrors instructions for `~/.hermes` / `~/.agents`
 - **Approach:**
-  1. Add “Hermes plugin” section: install/enable/validate, tool table, autonomous sequence.
+  1. Add “Hermes plugin” section: official install (`file://` / Git subdir) → enable → validate → doctor, tool table, autonomous sequence, note that bundled skills are `skill_view("dammwt:…")` opt-in.
   2. Define **MVP done** checklist (see Definition of Done).
-  3. Point skills at plugin without removing curl recipes.
+  3. Point skills at plugin without removing curl recipes; keep HTTP `:7842` as the universal contract.
 - **Test expectation:** none -- documentation and skill text only.
 - **Verification:** Doc links resolve; MVP checklist matches AE1–AE3.
 
@@ -406,8 +433,8 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 |------|-----------------|--------|
 | API acceptance | `npm run verify:api` | Notes-after-decide, export, existing Phase 1 routes |
 | Full verify | `npm run verify` | No Gallery/IPC regressions |
-| Hermes validate | `hermes plugins validate hermes-plugin/dammwt` | Manifest/load contract |
-| Hermes doctor | `hermes plugins doctor hermes-plugin/dammwt --ci` | Runtime register contract |
+| Hermes validate | `hermes plugins validate hermes-plugin/dammwt` (+ `--install-deps` if deps declared) | Manifest/load/`provides_tools` parity (catalog CI gate) |
+| Hermes doctor | `hermes plugins doctor hermes-plugin/dammwt --ci` | Real discovery + `register(ctx)` + registries (no network at register) |
 | Autonomous smoke | `scripts/dam-autonomous-smoke.*` (Electron up) | F1 / AE1 |
 | Human UI spot-check | `SEED=1 npm run review:electron` or `scripts/launch-dam.command` | Gallery central viewpoint after pushes/decisions |
 
@@ -415,11 +442,11 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 
 ### Global — MVP done means
 
-1. Native Hermes plugin installs and enables; tools cover health, ensure, project, push-via-documented-CLI, queue, decide, notes, lineage, refresh, export.
-2. Unattended smoke F1 completes on a machine with DAM; human UI optional for decisions.
+1. Native Hermes plugin installs into `~/.hermes/plugins/` (or equivalent user source) and is **enabled**; tools cover health, ensure, project, push-via-documented-CLI, queue, decide, notes, lineage, refresh, export.
+2. Unattended smoke F1 completes on a machine with DAM; human UI optional for decisions; tools alone suffice without requiring `skill_view` (A6).
 3. Notes editable after decide via HTTP/MCP/CLI/plugin (R6).
-4. `verify:api` + hermes validate/doctor (where Hermes available) pass; docs describe install and MVP checklist.
-5. No second SQLite writer; no portable `plugin.json` conflicting at plugin root; catalog submission not required.
+4. `verify:api` + `hermes plugins validate` + `hermes plugins doctor … --ci` (where Hermes available) pass; docs describe install/`file://`/Git subdir + enable and MVP checklist.
+5. No second SQLite writer; no root portable `plugin.json`; catalog submission not required.
 
 ### Per-unit
 
@@ -435,13 +462,47 @@ Agent/human boundary: submitting decisions is allowed for automation (R5) but de
 | Risk | Mitigation |
 |------|------------|
 | Ensure-up fails headless / no GUI | A3: clear errors; CI does not require auto-launch success |
-| Dual-manifest install refusal | KTD1: native only at package root |
+| Accidental portable / dual packaging | KTD1: native-only root; no `plugin.json`; validate as native |
+| Project-local plugin never loads in sessions | KTD5: install/enable into user plugins; document gateway rule |
+| Doctor fails because register opens sockets | KTD4/U5: HTTP only in handlers |
+| Bundled skills invisible to agent by default | A6: tools self-sufficient; skills via `skill_view("dammwt:…")` |
+| `provides_tools` drift fails validate | U5 keeps list in lockstep with `register_tool` names |
 | Plugin drifts from MCP tool names | Shared naming table in docs; U5 mirrors MCP |
 | Notes HTTP semantics diverge from IPC | Reuse DamService method only |
-| Token / env confusion across harnesses | Keep `docs/DAM-HARNESS.md` as single env contract |
+| Token / env confusion across harnesses | Keep `docs/DAM-HARNESS.md` as single env contract; rich `requires_env` |
 | `gh` PR evidence stale | Re-verify against source files during ce-work |
 
 ## Appendix
+
+### Research notes — Hermes plugins guide
+
+**Cited:** https://hermes-agent.nousresearch.com/docs/developer-guide/plugins  
+**Local mirror used this deepen:** `~/.hermes/hermes-agent/website/docs/developer-guide/plugins/index.md` (+ user-guide `features/plugins.md`, `plugins/catalog-submission.md`)  
+**CLI probed:** Hermes Agent v0.22.5 (local)
+
+Facts that changed or sharpened the plan (not product KD flips):
+
+| Topic | Official guidance | Plan consequence |
+|-------|-------------------|------------------|
+| Native vs portable | Native = `plugin.yaml` + `register(ctx)`. Portable Agent Plugins v1 = root `plugin.json` + skills/MCP only; does **not** replace native. | Keep KTD1 native; portable stays Deferred |
+| Dual manifests | Validate: if `plugin.yaml` present, native path runs; portable path only when **no** native manifest. Native always wins when both exist. | Softened earlier “install refusal” wording; still **omit** root `plugin.json` so the package is unambiguous |
+| Layout | `plugin.yaml`, `__init__.py`, `schemas.py`, `tools.py`; skills under `skills/<name>/SKILL.md` | Output Structure / U5 match guide |
+| `provides_tools` | Must match every `register_tool` name; drives validate “declared tools” check and catalog chips; does not gate load once enabled | U5/U7 lockstep list |
+| `register(ctx)` | Once at startup; tools/hooks/CLI/slash/skills; crash disables plugin only | U5 wiring pattern |
+| Handler contract | `(args, **kwargs) -> str` JSON; never raise | U5 |
+| Bundle skills | `ctx.register_skill`; namespaced `plugin:skill`; read-only; **not** in system-prompt skill index | A6 + tools-first autonomous loop |
+| Env gating | `requires_env` (rich form preferred); prompted on install | U5 manifest |
+| Capabilities | Consent for privileged host surfaces; fail-closed if undeclared | DAM HTTP plugin declares none |
+| Dependencies | `python_dependencies` or `pyproject.toml` (toml wins); `--yes-deps` / `--no-deps` for headless | Prefer stdlib MVP; CI `--install-deps` only if declared |
+| Validate | `hermes plugins validate <dir>` (+ `--install-deps` = catalog CI) | Verification + U7 |
+| Doctor | `hermes plugins doctor [path] --ci`; temp `HERMES_HOME`; **blocks sockets during register** | KTD4/U5: no HTTP at register |
+| Install identifiers | Catalog name, Git URL, `owner/repo[/subdir]`, or `file://` (warns insecure/local) | Soft flip: not bare `./hermes-plugin/dammwt` |
+| Opt-in | User plugins disabled until `hermes plugins enable` / `plugins.enabled` | DoD + README |
+| Project-local | `./.hermes/plugins/` **not** loaded by gateway sessions | Soft flip: KTD5 user-plugins install |
+| Third-party product plugins | Ship standalone (not into hermes-agent core); catalog is separate human-reviewed SHA pin | In-repo under DAMMWT correct; catalog Deferred |
+| Nothing to load | Validate rejects `plugin.yaml` with no `__init__.py` / desktop / portable / locales entrypoint | Native package must ship `__init__.py` |
+
+**Settled product constraints preserved:** HTTP OpenAPI on `127.0.0.1:7842` universal (KD1); Electron sole SQLite writer (KD2); `push:media` primary for bytes (KD3); harness-agnostic adapters (KD4); notes editable after decide (KD5).
 
 ### Prior art status (Phase 1)
 
