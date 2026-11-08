@@ -34,6 +34,7 @@ Health is unauthenticated. All other `/v1/*` routes need `Authorization: Bearer 
 |---------|------|---------|
 | Stdio MCP | `mcp/index.mjs` (`npm run dam:mcp`) | Claude Desktop, Cursor, any MCP client |
 | HTTP CLI | `scripts/dam-decide.mjs` (`npm run dam:decide`) | Shell / Grok / scripts |
+| Ensure-up | `scripts/dam-ensure.mjs` (`npm run dam:ensure`) | Probe health; best-effort launch Gallery if down (CLI/plugin-side — not an HTTP route) |
 | Token helper | `scripts/dam-token.mjs` (`npm run dam:token`) | Any harness |
 | curl examples | `scripts/dam-api-examples.sh` | Smoke / copy-paste |
 | OpenAPI | `docs/openapi-dam-api.yaml` | Grok / codegen / tool import |

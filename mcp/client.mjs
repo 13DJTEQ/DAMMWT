@@ -138,6 +138,15 @@ export const damApi = {
     damFetch('GET', `/v1/assets/${encodeURIComponent(assetId)}`),
   submitDecision: (body) =>
     damFetch('POST', '/v1/approvals', { body }),
+  updateNotes: (assetId, body) =>
+    damFetch('PATCH', `/v1/assets/${encodeURIComponent(assetId)}/notes`, {
+      body,
+    }),
+  exportFeedback: (project) =>
+    damFetch(
+      'GET',
+      `/v1/projects/${encodeURIComponent(project)}/feedback`
+    ),
   getLineage: (assetId) =>
     damFetch('GET', `/v1/assets/${encodeURIComponent(assetId)}/lineage`),
   getHistory: (assetId) =>

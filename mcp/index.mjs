@@ -120,6 +120,43 @@ const TOOLS = [
     },
   },
   {
+    name: 'dam_update_notes',
+    description:
+      'Amend notes after love/keep/reject without changing status (PATCH /v1/assets/:id/notes).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        assetId: { type: 'string' },
+        notes: {
+          type: 'string',
+          description: 'Replacement notes (empty string allowed)',
+        },
+        reviewedBy: {
+          type: 'string',
+          description: 'Optional reviewer attribution update',
+        },
+      },
+      required: ['assetId', 'notes'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'dam_export_feedback',
+    description:
+      'Export project feedback JSON (decisions, notes, lineage id pointers) without opening SQLite.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: {
+          type: 'string',
+          description: 'Gallery project section slug',
+        },
+      },
+      required: ['project'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'dam_get_lineage',
     description:
       'Walk parentSourceId to SoT + siblings sharing the same parent. Steer next gen from loves + SoT.',
@@ -193,6 +230,14 @@ async function callTool(name, args = {}) {
           notes: args.notes,
         })
       );
+    case 'dam_update_notes': {
+      /** @type {{ notes: string, reviewedBy?: string }} */
+      const body = { notes: args.notes };
+      if (args.reviewedBy !== undefined) body.reviewedBy = args.reviewedBy;
+      return toolResult(await damApi.updateNotes(args.assetId, body));
+    }
+    case 'dam_export_feedback':
+      return toolResult(await damApi.exportFeedback(args.project));
     case 'dam_get_lineage':
       return toolResult(await damApi.getLineage(args.assetId));
     case 'dam_reveal_file':

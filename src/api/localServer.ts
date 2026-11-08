@@ -19,6 +19,7 @@ import type {
   IngestAssetInput,
   ReviewStatus,
   SubmitApprovalInput,
+  UpdateApprovalNotesInput,
 } from '../database/DatabaseManager';
 
 export const DEFAULT_DAM_API_PORT = 7842;
@@ -251,6 +252,28 @@ async function handleRequest(
       return;
     }
 
+    const projectFeedbackMatch = path.match(
+      /^\/v1\/projects\/([^/]+)\/feedback$/
+    );
+    if (method === 'GET' && projectFeedbackMatch) {
+      const slug = decodeURIComponent(projectFeedbackMatch[1]!);
+      const feedback = service.exportProjectFeedback(slug);
+      json(res, 200, { ok: true, ...feedback });
+      return;
+    }
+
+    // Alias: GET /v1/feedback?project=<slug>
+    if (method === 'GET' && path === '/v1/feedback') {
+      const project = url.searchParams.get('project') ?? '';
+      if (!project.trim()) {
+        json(res, 400, { ok: false, error: 'project query param is required' });
+        return;
+      }
+      const feedback = service.exportProjectFeedback(project);
+      json(res, 200, { ok: true, ...feedback });
+      return;
+    }
+
     const assetMatch = path.match(/^\/v1\/assets\/([^/]+)(.*)$/);
     if (assetMatch) {
       const assetId = decodeURIComponent(assetMatch[1]!);
@@ -263,6 +286,28 @@ async function handleRequest(
           return;
         }
         json(res, 200, { ok: true, asset });
+        return;
+      }
+
+      if (method === 'PATCH' && rest === '/notes') {
+        const body = await readJson(req);
+        if (!Object.prototype.hasOwnProperty.call(body, 'notes')) {
+          json(res, 400, { ok: false, error: 'notes is required' });
+          return;
+        }
+        if (typeof body.notes !== 'string') {
+          json(res, 400, { ok: false, error: 'notes must be a string' });
+          return;
+        }
+        const input: UpdateApprovalNotesInput = {
+          assetId,
+          notes: body.notes,
+        };
+        if (typeof body.reviewedBy === 'string') {
+          input.reviewedBy = body.reviewedBy;
+        }
+        const history = service.updateApprovalNotes(input);
+        json(res, 200, { ok: true, history });
         return;
       }
 

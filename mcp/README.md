@@ -19,6 +19,8 @@ node mcp/index.mjs
 | `dam_refresh` | `POST /v1/media/refresh` |
 | `dam_list_queue` | `GET /v1/queue` |
 | `dam_submit_decision` | `POST /v1/approvals` |
+| `dam_update_notes` | `PATCH /v1/assets/:id/notes` |
+| `dam_export_feedback` | `GET /v1/projects/:slug/feedback` |
 | `dam_get_lineage` | `GET /v1/assets/:id/lineage` |
 | `dam_reveal_file` | `POST /v1/shell/reveal` |
 | `dam_open_file` | `POST /v1/shell/open` |
@@ -100,18 +102,22 @@ Same `command` / `args` / `env` — only the config **file** differs.
 
 ```bash
 npm run dam:token
+npm run dam:ensure                 # health probe; best-effort launch if down
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending
 npm run dam:decide -- submit --asset-id <id> --decision love --by harness
+npm run dam:decide -- notes --asset-id <id> --notes 'hero — warmer grade'
+npm run dam:decide -- export --project my-client
 ```
 
 Hermes / agents skill: `~/.hermes/skills/dammwt-harness/` · `~/.agents/skills/dammwt-harness/`.
 
 ## When API is down
 
-Tools return a clear **DAM API unreachable** error. Start Gallery:
+Tools return a clear **DAM API unreachable** error. Prefer:
 
 ```bash
 cd /Users/administrator/src/DAMMWT
-SEED=1 npm run review:electron
+npm run dam:ensure
+# or: SEED=1 npm run review:electron
 ```

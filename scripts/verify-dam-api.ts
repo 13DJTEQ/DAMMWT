@@ -207,6 +207,169 @@ async function main(): Promise<void> {
     }
     console.log('POST /v1/approvals love ok; mutations=', mutations);
 
+    // Notes-after-decide (PATCH) — status stays love; history notes update
+    const beforeNotesMutations = mutations;
+    const notesPatch = await fetchJson(base, '/v1/assets/api-verify-1/notes', {
+      method: 'PATCH',
+      token,
+      body: {
+        notes: 'hero — warmer grade',
+        reviewedBy: 'verify-dam-api-notes',
+      },
+    });
+    if (notesPatch.status !== 200 || notesPatch.body.ok !== true) {
+      throw new Error(`notes PATCH failed: ${JSON.stringify(notesPatch)}`);
+    }
+    const historyRow = notesPatch.body.history as {
+      notes?: string;
+      decision?: string;
+      reviewedBy?: string;
+    };
+    if (historyRow.notes !== 'hero — warmer grade') {
+      throw new Error(`notes not updated: ${JSON.stringify(historyRow)}`);
+    }
+    if (historyRow.decision !== 'love') {
+      throw new Error(`notes PATCH must not change decision: ${JSON.stringify(historyRow)}`);
+    }
+    if (mutations <= beforeNotesMutations) {
+      throw new Error('expected onMutation after HTTP notes PATCH');
+    }
+    const assetAfterNotes = service.getByAssetId('api-verify-1');
+    if (!assetAfterNotes || assetAfterNotes.status !== 'love') {
+      throw new Error('asset status must remain love after notes PATCH');
+    }
+    const historyAfter = service.getAssetVersionHistory('api-verify-1');
+    const latestLove = [...historyAfter]
+      .reverse()
+      .find((h) => h.decision === 'love');
+    if (!latestLove || latestLove.notes !== 'hero — warmer grade') {
+      throw new Error(
+        `history latest love notes mismatch: ${JSON.stringify(latestLove)}`
+      );
+    }
+    console.log('PATCH /v1/assets/:id/notes ok; mutations=', mutations);
+
+    // Empty notes string is allowed (clears / stores empty)
+    const clearNotes = await fetchJson(base, '/v1/assets/api-verify-1/notes', {
+      method: 'PATCH',
+      token,
+      body: { notes: '' },
+    });
+    if (
+      clearNotes.status !== 200 ||
+      (clearNotes.body.history as { notes?: string | null })?.notes !== ''
+    ) {
+      throw new Error(`empty notes failed: ${JSON.stringify(clearNotes)}`);
+    }
+    // Restore notes for feedback export assertion
+    await fetchJson(base, '/v1/assets/api-verify-1/notes', {
+      method: 'PATCH',
+      token,
+      body: { notes: 'hero — warmer grade' },
+    });
+
+    // Unknown asset notes → 4xx
+    const unknownNotes = await fetchJson(base, '/v1/assets/no-such-asset/notes', {
+      method: 'PATCH',
+      token,
+      body: { notes: 'x' },
+    });
+    if (unknownNotes.status < 400 || unknownNotes.status >= 500) {
+      throw new Error(
+        `expected 4xx for unknown asset notes, got ${unknownNotes.status}`
+      );
+    }
+    console.log('PATCH notes unknown asset →', unknownNotes.status);
+
+    // Missing bearer on notes → 401
+    const notesUnauth = await fetchJson(base, '/v1/assets/api-verify-1/notes', {
+      method: 'PATCH',
+      body: { notes: 'nope' },
+    });
+    if (notesUnauth.status !== 401) {
+      throw new Error(`expected 401 notes without token, got ${notesUnauth.status}`);
+    }
+    console.log('PATCH notes without token → 401');
+
+    // Pending sibling for feedback export (same projectTag)
+    service.ingestAsset({
+      assetId: 'api-verify-2',
+      sourceBackend: 'local',
+      sourceIdentifier: '/tmp/api-verify-2.png',
+      previewUrl: 'file:///tmp/api-verify-2.png',
+      projectTag: 'api-verify',
+      partition: 'generated',
+      parentSourceId: 'api-verify-1',
+      title: 'API verify pending child',
+    });
+
+    // Feedback export — loved + pending, notes + lineage pointers
+    const feedback = await fetchJson(
+      base,
+      '/v1/projects/api-verify/feedback',
+      { token }
+    );
+    if (feedback.status !== 200 || feedback.body.ok !== true) {
+      throw new Error(`feedback failed: ${JSON.stringify(feedback)}`);
+    }
+    if (feedback.body.project !== 'api-verify') {
+      throw new Error(`feedback project mismatch: ${JSON.stringify(feedback.body)}`);
+    }
+    const exported = feedback.body.assets as Array<{
+      assetId: string;
+      status: string;
+      notes: string | null;
+      lineage?: { chainAssetIds?: string[]; siblingAssetIds?: string[] };
+    }>;
+    if (!Array.isArray(exported) || exported.length < 2) {
+      throw new Error(`feedback expected ≥2 assets: ${JSON.stringify(feedback.body)}`);
+    }
+    const loved = exported.find((a) => a.assetId === 'api-verify-1');
+    const pending = exported.find((a) => a.assetId === 'api-verify-2');
+    if (!loved || loved.status !== 'love' || loved.notes !== 'hero — warmer grade') {
+      throw new Error(`feedback loved row bad: ${JSON.stringify(loved)}`);
+    }
+    if (!pending || pending.status !== 'pending') {
+      throw new Error(`feedback pending row bad: ${JSON.stringify(pending)}`);
+    }
+    if (
+      !loved.lineage?.chainAssetIds?.includes('api-verify-1') ||
+      !pending.lineage?.chainAssetIds?.includes('api-verify-2')
+    ) {
+      throw new Error(`feedback lineage pointers missing: ${JSON.stringify(exported)}`);
+    }
+    console.log('GET /v1/projects/:slug/feedback ok; assets=', exported.length);
+
+    // Alias + empty project
+    const feedbackAlias = await fetchJson(base, '/v1/feedback?project=api-verify', {
+      token,
+    });
+    if (feedbackAlias.status !== 200 || feedbackAlias.body.ok !== true) {
+      throw new Error(`feedback alias failed: ${JSON.stringify(feedbackAlias)}`);
+    }
+    const emptyFeedback = await fetchJson(
+      base,
+      '/v1/projects/no-such-project/feedback',
+      { token }
+    );
+    const emptyAssets = emptyFeedback.body.assets as unknown[];
+    if (
+      emptyFeedback.status !== 200 ||
+      !Array.isArray(emptyAssets) ||
+      emptyAssets.length !== 0
+    ) {
+      throw new Error(
+        `unknown project should return empty assets: ${JSON.stringify(emptyFeedback)}`
+      );
+    }
+    const feedbackUnauth = await fetchJson(base, '/v1/projects/api-verify/feedback');
+    if (feedbackUnauth.status !== 401) {
+      throw new Error(
+        `expected 401 feedback without token, got ${feedbackUnauth.status}`
+      );
+    }
+    console.log('feedback alias / empty / 401 ok');
+
     // Stats
     const stats = await fetchJson(base, '/v1/queue/stats', { token });
     const s = stats.body.stats as { love?: number; pending?: number };

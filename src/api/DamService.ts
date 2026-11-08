@@ -82,6 +82,35 @@ export interface CreateProjectResult {
   error?: string;
 }
 
+/** Lineage id pointers for feedback export (no full row dump). */
+export interface DamFeedbackLineagePointers {
+  parentSourceId: string | null;
+  chainAssetIds: string[];
+  siblingAssetIds: string[];
+}
+
+/** One asset row in a project feedback export. */
+export interface DamFeedbackAsset {
+  assetId: string;
+  status: ReviewStatus;
+  notes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  parentSourceId: string | null;
+  title: string | null;
+  partition: ReviewQueueRow['partition'];
+  projectTag: string | null;
+  version: number;
+  lineage: DamFeedbackLineagePointers;
+}
+
+/** Structured project feedback for the next generation loop (HTTP/CLI). */
+export interface DamProjectFeedback {
+  project: string;
+  exportedAt: string;
+  assets: DamFeedbackAsset[];
+}
+
 export interface PushAssetInput {
   /** Absolute (or cwd-relative) file to stage via push:media. */
   sourcePath?: string;
@@ -197,6 +226,51 @@ export class DamService {
     const history = this.db.updateApprovalNotes(input);
     this.emit({ kind: 'notes', assetId: input.assetId });
     return history;
+  }
+
+  /**
+   * Read-only aggregator: queue rows for a project + latest decision notes +
+   * lineage id pointers. Does not open a second SQLite writer or dump the DB.
+   * Unknown / empty projects return `{ assets: [] }` (same as queue filter).
+   */
+  exportProjectFeedback(projectSlug: string): DamProjectFeedback {
+    const project = projectSlug.trim();
+    if (!project) {
+      throw new Error('project is required');
+    }
+    const rows = this.getReviewQueue(undefined, project);
+    const assets: DamFeedbackAsset[] = rows.map((row) => {
+      const history = this.getAssetVersionHistory(row.assetId);
+      const reversed = [...history].reverse();
+      const decisionRow =
+        reversed.find((h) => h.decision === row.status) ??
+        reversed.find((h) => h.decision !== 'pending') ??
+        reversed[0] ??
+        null;
+      const lineage = this.getLineage(row.assetId);
+      return {
+        assetId: row.assetId,
+        status: row.status,
+        notes: decisionRow?.notes ?? null,
+        reviewedBy: decisionRow?.reviewedBy ?? null,
+        reviewedAt: decisionRow?.reviewedAt ?? null,
+        parentSourceId: row.parentSourceId,
+        title: row.title,
+        partition: row.partition,
+        projectTag: row.projectTag,
+        version: row.version,
+        lineage: {
+          parentSourceId: row.parentSourceId,
+          chainAssetIds: lineage?.chain.map((a) => a.assetId) ?? [row.assetId],
+          siblingAssetIds: lineage?.siblings.map((a) => a.assetId) ?? [],
+        },
+      };
+    });
+    return {
+      project,
+      exportedAt: new Date().toISOString(),
+      assets,
+    };
   }
 
   getQueueStats(): QueueStats {

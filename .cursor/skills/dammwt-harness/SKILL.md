@@ -26,13 +26,18 @@ curl -s "$DAM_API_BASE/v1/health" | jq .
 curl -s -H "Authorization: Bearer $DAM_API_TOKEN" \
   "$DAM_API_BASE/v1/queue?status=pending" | jq .
 
+# Ensure Gallery API is up (CLI-side; not HTTP POST /v1/ensure)
+npm run dam:ensure --prefix "$DAMMWT_ROOT"
+
 # CLI
 npm run dam:decide --prefix "$DAMMWT_ROOT" -- health
 npm run dam:decide --prefix "$DAMMWT_ROOT" -- queue --status pending
+npm run dam:decide --prefix "$DAMMWT_ROOT" -- notes --asset-id <id> --notes 'steer'
+npm run dam:decide --prefix "$DAMMWT_ROOT" -- export --project my-client
 
 # Bytes
 npm run push:media --prefix "$DAMMWT_ROOT" -- \
   --file "/absolute/out.png" --partition generated --project my-client
 ```
 
-MCP (Claude Desktop **and** Cursor): `mcp/README.md` — same `node mcp/index.mjs` stdio server.
+MCP (Claude Desktop **and** Cursor): `mcp/README.md` — same `node mcp/index.mjs` stdio server (`dam_update_notes`, `dam_export_feedback`).

@@ -171,11 +171,25 @@ Comfy custom nodes: `urllib`/`requests`/`fetch` against `/v1/*` with the bearer 
 Thin CLI (same contract):
 
 ```bash
+npm run dam:ensure                                 # health; best-effort launch if down
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending --project my-client
 npm run dam:decide -- submit --asset-id <id> --decision love --by comfy-harness
+npm run dam:decide -- notes --asset-id <id> --notes 'hero — warmer grade'
+npm run dam:decide -- export --project my-client
 npm run dam:decide -- lineage --asset-id <id>
 npm run dam:decide -- refresh
+```
+
+HTTP notes / feedback (bearer required):
+
+```bash
+curl -s -X PATCH -H "Authorization: Bearer $DAM_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"notes":"hero — warmer grade"}' \
+  "$DAM_API_BASE/v1/assets/<id>/notes"
+
+curl -s -H "Authorization: Bearer $DAM_API_TOKEN" \
+  "$DAM_API_BASE/v1/projects/my-client/feedback"
 ```
 
 ---
@@ -183,12 +197,13 @@ npm run dam:decide -- refresh
 ## Recommended agent loop (any harness)
 
 ```
-health → create project → (generate) → push asset(s)
+dam:ensure → create project → (generate) → push asset(s)
   → Dave reviews in Gallery (central UI; auto-refresh)
-  → list queue / lineage → steer next generation
+    OR agent submit + optional notes amend
+  → export feedback / lineage → steer next generation
 ```
 
-Agents push and read; humans decide in **MWT DAM** Gallery unless a harness explicitly posts approvals.
+Agents push and read; humans decide in **MWT DAM** Gallery unless a harness explicitly posts approvals. Notes stay editable after love/keep/reject via `PATCH /v1/assets/:id/notes`.
 
 ---
 
@@ -198,10 +213,12 @@ Connection refused / timeout → Electron is not running or `DAM_API_DISABLE=1`.
 
 ```bash
 cd "${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
-SEED=1 npm run review:electron
+npm run dam:ensure
+# probe-only (CI / no GUI): npm run dam:ensure -- --no-launch
+# manual: SEED=1 npm run review:electron
 ```
 
-MCP tools surface **DAM API unreachable**. Do not open `dam.db` from a second process while Electron is up.
+`dam:ensure` is **CLI/plugin-side** (not `POST /v1/ensure`) — spawning Electron from inside Electron does not make sense. MCP tools surface **DAM API unreachable**. Do not open `dam.db` from a second process while Electron is up.
 
 ---
 
@@ -216,6 +233,7 @@ MCP tools surface **DAM API unreachable**. Do not open `dam.db` from a second pr
 | `src/api/localServer.ts` | Route implementation (source of truth for paths) |
 | `scripts/dam-api-examples.sh` | Curl smoke |
 | `npm run dam:token` | Print token path/value |
-| `npm run dam:decide` | Thin HTTP CLI |
+| `npm run dam:ensure` | Health probe + best-effort Gallery launch |
+| `npm run dam:decide` | Thin HTTP CLI (incl. `notes`, `export`) |
 | `npm run verify:api` | Automated API acceptance |
 | `~/.hermes/skills/dammwt-harness/` | Hermes skill |

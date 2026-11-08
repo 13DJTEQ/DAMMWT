@@ -24,6 +24,7 @@ tags:
   - name: assets
   - name: queue
   - name: decision
+  - name: feedback
   - name: lineage
   - name: shell
   - name: refresh
@@ -152,6 +153,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CreateProjectResult'
+
+  /v1/projects/{slug}/feedback:
+    get:
+      tags: [feedback]
+      summary: Export project feedback JSON
+      description: |
+        Read-only aggregator over queue + latest decision notes + lineage id
+        pointers for the next generation loop. Does not dump SQLite or open a
+        second writer. Unknown / empty projects return `assets: []` (same as
+        queue project filter). Alias: `GET /v1/feedback?project=<slug>`.
+      operationId: exportProjectFeedback
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Gallery project section slug
+          example: my-client
+      responses:
+        '200':
+          description: Feedback payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectFeedbackResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/feedback:
+    get:
+      tags: [feedback]
+      summary: Export project feedback (query alias)
+      description: Same payload as `GET /v1/projects/{slug}/feedback`.
+      operationId: exportProjectFeedbackQuery
+      parameters:
+        - name: project
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Gallery project section slug
+      responses:
+        '200':
+          description: Feedback payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectFeedbackResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /v1/assets:
     post:
@@ -349,6 +403,44 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /v1/assets/{assetId}/notes:
+    patch:
+      tags: [decision]
+      summary: Update notes after decide
+      description: |
+        Amend notes on the latest decision history row without changing status
+        (love/keep/reject/changesRequested stay put). Same path as Gallery IPC
+        `updateApprovalNotes`. Broadcasts `media:updated` via DamService emit.
+      operationId: updateApprovalNotes
+      parameters:
+        - $ref: '#/components/parameters/assetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApprovalNotesBody'
+            example:
+              notes: 'hero — warmer grade'
+              reviewedBy: cursor-agent
+      responses:
+        '200':
+          description: Updated history row
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, history]
+                properties:
+                  ok:
+                    type: boolean
+                  history:
+                    $ref: '#/components/schemas/ApprovalHistoryRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /v1/assets/{assetId}/lineage:
     get:
@@ -793,6 +885,95 @@ components:
           description: Free string (e.g. dave, cursor-agent, comfy-harness, hermes)
         notes:
           type: string
+
+    UpdateApprovalNotesBody:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+          description: Replacement notes (empty string clears / stores empty)
+        reviewedBy:
+          type: string
+          description: Optional reviewer attribution update
+
+    FeedbackLineagePointers:
+      type: object
+      required: [parentSourceId, chainAssetIds, siblingAssetIds]
+      properties:
+        parentSourceId:
+          type: string
+          nullable: true
+        chainAssetIds:
+          type: array
+          items:
+            type: string
+        siblingAssetIds:
+          type: array
+          items:
+            type: string
+
+    FeedbackAsset:
+      type: object
+      required:
+        - assetId
+        - status
+        - notes
+        - reviewedBy
+        - reviewedAt
+        - parentSourceId
+        - title
+        - partition
+        - projectTag
+        - version
+        - lineage
+      properties:
+        assetId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReviewStatus'
+        notes:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          nullable: true
+        parentSourceId:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        partition:
+          allOf:
+            - $ref: '#/components/schemas/MediaPartition'
+          nullable: true
+        projectTag:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        lineage:
+          $ref: '#/components/schemas/FeedbackLineagePointers'
+
+    ProjectFeedbackResponse:
+      type: object
+      required: [ok, project, exportedAt, assets]
+      properties:
+        ok:
+          type: boolean
+        project:
+          type: string
+        exportedAt:
+          type: string
+          format: date-time
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackAsset'
 
     IngestAssetInput:
       type: object

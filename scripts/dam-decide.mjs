@@ -5,6 +5,8 @@
  *   npm run dam:decide -- health
  *   npm run dam:decide -- queue [--status pending] [--project slug]
  *   npm run dam:decide -- submit --asset-id <id> --decision love|keep|reject|changesRequested [--by who] [--notes …]
+ *   npm run dam:decide -- notes --asset-id <id> --notes <text> [--by who]
+ *   npm run dam:decide -- export --project <slug>
  *   npm run dam:decide -- lineage --asset-id <id>
  *   npm run dam:decide -- reveal --path <localPath>
  *   npm run dam:decide -- refresh
@@ -34,6 +36,8 @@ function usage(code = 1) {
   npm run dam:decide -- queue [--status pending|love|keep|reject|changesRequested] [--project <slug>]
   npm run dam:decide -- stats
   npm run dam:decide -- submit --asset-id <id> --decision <love|keep|reject|changesRequested> [--by <who>] [--notes <text>]
+  npm run dam:decide -- notes --asset-id <id> --notes <text> [--by <who>]
+  npm run dam:decide -- export --project <slug>
   npm run dam:decide -- lineage --asset-id <id>
   npm run dam:decide -- get --asset-id <id>
   npm run dam:decide -- reveal --path <localPath>
@@ -152,6 +156,39 @@ async function main() {
             notes,
           })
         );
+        break;
+      }
+
+      case 'notes':
+      case 'update-notes': {
+        const assetId = args['asset-id'] || args.assetId || args._[1];
+        if (!assetId) {
+          console.error('Missing --asset-id');
+          process.exit(1);
+        }
+        if (!Object.prototype.hasOwnProperty.call(args, 'notes')) {
+          console.error('Missing --notes (use --notes "" to clear)');
+          process.exit(1);
+        }
+        const notes =
+          args.notes === true ? '' : String(args.notes ?? '');
+        /** @type {{ notes: string, reviewedBy?: string }} */
+        const body = { notes };
+        const reviewedBy =
+          args.by || args['reviewed-by'] || args.reviewedBy;
+        if (reviewedBy) body.reviewedBy = String(reviewedBy);
+        printJson(await damApi.updateNotes(assetId, body));
+        break;
+      }
+
+      case 'export':
+      case 'feedback': {
+        const project = args.project || args.slug || args._[1];
+        if (!project) {
+          console.error('Missing --project');
+          process.exit(1);
+        }
+        printJson(await damApi.exportFeedback(project));
         break;
       }
 
