@@ -1,0 +1,60 @@
+name: dammwt
+version: 0.1.0
+description: >
+  MWT DAM (DAMMWT) tools for Hermes — health, ensure-up, project sections,
+  push assets, review queue, decisions, post-decide notes, lineage, refresh,
+  and feedback export against the Electron localhost OpenAPI (127.0.0.1:7842).
+author: Media Wave Technology
+homepage: https://github.com/13DJTEQ/DAMMWT/tree/main/hermes-plugin/dammwt
+license: MIT
+tags:
+  - dam
+  - gallery
+  - media
+  - mwt
+provides_tools:
+  - dam_health
+  - dam_ensure_up
+  - dam_create_project
+  - dam_push_asset
+  - dam_list_queue
+  - dam_submit_decision
+  - dam_update_notes
+  - dam_get_lineage
+  - dam_refresh
+  - dam_export_feedback
+requires_env:
+  - name: DAM_API_TOKEN
+    description: >
+      Bearer token for the DAM localhost API (mutating routes). Prefer
+      `npm run dam:token --prefix $DAMMWT_ROOT` / first Electron launch
+      (token file also works via DAM_API_TOKEN_FILE).
+    secret: true
+optional_env:
+  - name: DAM_API_BASE
+    description: "DAM API base URL (default http://127.0.0.1:7842)"
+  - name: DAMMWT_ROOT
+    description: "Absolute path to the DAMMWT git checkout (ensure-up + push:media)"
+  - name: DAM_API_TOKEN_FILE
+    description: "Optional path to token file if DAM_API_TOKEN is unset"
+  - name: DAM_API_PORT
+    description: "Port when DAM_API_BASE is unset (default 7842)"
+config_schema:
+  api_base:
+    type: str
+    default: "http://127.0.0.1:7842"
+    label: "DAM API base"
+    description: "Loopback OpenAPI root (Electron main). Override of DAM_API_BASE."
+    required: false
+  dammwt_root:
+    type: str
+    default: ""
+    label: "DAMMWT checkout"
+    description: "Absolute path to DAMMWT (ensure-up / push:media). Override of DAMMWT_ROOT."
+    required: false
+  ensure_timeout_sec:
+    type: int
+    default: 45
+    label: "Ensure-up timeout (sec)"
+    description: "How long dam_ensure_up waits for /v1/health after launching Electron."
+    required: false

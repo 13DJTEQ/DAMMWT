@@ -4,7 +4,7 @@ Plan-ready design for generative creative workflows where **Electron MWT DAM is 
 
 **Connectivity is harness-agnostic:** Claude, Cursor, Grok, Hermes, Comfy, and generic scripts all use the same **localhost HTTP API** as the universal contract. MCP and CLI are optional adapters — not required. How-to for any agent: [`HARNESS-CONNECTIVITY.md`](./HARNESS-CONNECTIVITY.md). Machine contract: [`openapi-dam-api.yaml`](./openapi-dam-api.yaml).
 
-**Status:** Phase 1 **implemented** (HTTP API + OpenAPI + MCP + `dam:decide` + skill/docs)
+**Status:** Phase 1 **implemented** (HTTP API + OpenAPI + MCP + `dam:decide` + skill/docs). Hermes native plugin + notes/export/ensure-up: **implemented** (see [`hermes-plugin/dammwt/`](../hermes-plugin/dammwt/), [`HARNESS-CONNECTIVITY.md`](./HARNESS-CONNECTIVITY.md)).
 
 | Piece | Status |
 |-------|--------|
@@ -15,6 +15,10 @@ Plan-ready design for generative creative workflows where **Electron MWT DAM is 
 | Skill docs (API/MCP when Electron up) | **implemented** |
 | README curl + MCP config | **implemented** |
 | `npm run verify:api` / `scripts/dam-api-examples.sh` | **implemented** |
+| Notes after decide (`PATCH /v1/assets/:id/notes`) | **implemented** (HTTP + MCP + CLI + plugin) |
+| Feedback export (`GET /v1/projects/:slug/feedback`) | **implemented** |
+| Ensure-up (`npm run dam:ensure` / `dam_ensure_up`) | **implemented** (client-side; not an HTTP route) |
+| Hermes native plugin (`hermes-plugin/dammwt/`) | **implemented** |
 
 ---
 
@@ -364,6 +368,7 @@ dam_create_project → (Comfy run) → dam_push_asset(s)
 | Phase | What ships | Clients |
 |-------|------------|---------|
 | **1 (this doc)** | Localhost HTTP in Electron (universal) + optional MCP/`dam:decide` + CLI | Any same-Mac harness (Claude, Cursor, Grok, Hermes, Comfy, scripts) |
+| **1b** | Notes PATCH + feedback export + ensure-up + native Hermes plugin | Hermes sessions (tools) + same HTTP for every harness |
 | **2** | Tunnel to Phase 1 API **or** Supabase mirror + auth hardening | Cloud Cursor agents |
 | **3** | Optional blob sync / multi-reviewer roles | Multi-device creative team |
 

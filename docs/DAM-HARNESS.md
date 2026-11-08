@@ -39,6 +39,7 @@ Health is unauthenticated. All other `/v1/*` routes need `Authorization: Bearer 
 | curl examples | `scripts/dam-api-examples.sh` | Smoke / copy-paste |
 | OpenAPI | `docs/openapi-dam-api.yaml` | Grok / codegen / tool import |
 | Bytes staging | `npm run push:media` / `dam:section` | Any (disk SoT) |
+| Hermes native plugin | `hermes-plugin/dammwt/` (`hermes plugins validate|install|enable`) | Hermes sessions (tools + bundled skills) |
 | Hermes / agents skill | `~/.hermes/skills/dammwt-harness/` · `~/.agents/skills/dammwt-harness/` · repo `.cursor/skills/dammwt-harness/` | Hermes, Claude Code, Cursor agents |
 | Push-media skill | `~/.agents/skills/dammwt-push-media/` | Bytes-only workflows |
 

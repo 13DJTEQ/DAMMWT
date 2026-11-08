@@ -52,6 +52,9 @@ With Electron running, main serves a **loopback-only** HTTP API on `127.0.0.1:78
 - Architecture: [docs/AGENT-ELECTRON-SYNC.md](docs/AGENT-ELECTRON-SYNC.md)
 
 ```bash
+# Ensure Gallery/API is up (health; best-effort launch if down):
+npm run dam:ensure
+
 # Token file (created on first launch; mode 0600):
 #   ~/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token
 TOKEN=$(cat "$HOME/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token")
@@ -64,15 +67,24 @@ curl -s -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:7842/v1/queue?status
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"assetId":"EXAMPLE","decision":"love","reviewedBy":"dave","notes":"hero"}' \
   http://127.0.0.1:7842/v1/approvals | jq .
+curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"notes":"hero — warmer grade"}' \
+  http://127.0.0.1:7842/v1/assets/EXAMPLE/notes | jq .
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:7842/v1/projects/my-client/feedback" | jq .
 
 # Smoke script / thin CLI (same HTTP contract):
 bash scripts/dam-api-examples.sh
 npm run dam:decide -- health
 npm run dam:decide -- queue --status pending
 npm run dam:decide -- submit --asset-id EXAMPLE --decision love --by dave --notes "hero"
+npm run dam:decide -- notes --asset-id EXAMPLE --notes "hero — warmer grade"
+npm run dam:decide -- export --project my-client
 ```
 
-Env contract (Claude / Grok / Hermes / Cursor): [docs/DAM-HARNESS.md](docs/DAM-HARNESS.md) — `DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE`. Print token for injection: `npm run dam:token`. `DAM_API_DISABLE=1` skips the server (CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, lineage, reveal, and optional one-shot push.
+Env contract (Claude / Grok / Hermes / Cursor): [docs/DAM-HARNESS.md](docs/DAM-HARNESS.md) — `DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE`. Print token for injection: `npm run dam:token`. `DAM_API_DISABLE=1` skips the server (CI / demos). Asset **bytes** still stage via `npm run push:media` / `dam:section`; HTTP handles queue, approvals, notes, feedback export, lineage, reveal, and optional one-shot push.
+
+**Hermes plugin:** [hermes-plugin/dammwt/README.md](hermes-plugin/dammwt/README.md) — `hermes plugins validate|doctor|install|enable` against `hermes-plugin/dammwt` (user plugins tree; not `./.hermes/plugins/`).
 
 **Optional MCP (any client):** [mcp/README.md](mcp/README.md) — generic stdio `node mcp/index.mjs`; Claude Desktop `claude_desktop_config.json` and Cursor `mcp.json` snippets side by side.
 

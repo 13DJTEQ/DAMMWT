@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-30T07:40:58.404Z",
+  "generatedAt": "2026-11-08T01:49:03.120Z",
   "sourceRootHint": "MWTDAM/tattoo-designs/tattoo (override with MWTDAM_TATTOO_ROOT)",
   "mediaRoot": "assets/media",
   "webPublicRoot": "web/public/media",
@@ -25,7 +25,7 @@
   "counts": {
     "originals": 17,
     "tattoos": 45,
-    "generated": 418
+    "generated": 419
   },
   "lineageLinks": 36,
   "skipped": [],
@@ -12239,6 +12239,29 @@
         "ren-visuals"
       ],
       "description": null
+    },
+    {
+      "id": "proj-hermes-mvp-smoke-gen-push-smoke",
+      "assetId": "proj-hermes-mvp-smoke-gen-push-smoke",
+      "title": "hermes-mvp-smoke",
+      "partition": "generated",
+      "previewPath": "projects/hermes-mvp-smoke/generated/smoke.png",
+      "previewUrl": "/media/projects/hermes-mvp-smoke/generated/smoke.png",
+      "localPath": "assets/media/projects/hermes-mvp-smoke/generated/smoke.png",
+      "cloudUrl": null,
+      "sourcePath": "/var/folders/7y/493d78xn1qv0p7k4ptfzyk1r0000gn/T/tmp.1FpGHGZXLw/smoke.png",
+      "parentSourceId": null,
+      "parentId": null,
+      "derivedFrom": null,
+      "batch": null,
+      "report": null,
+      "project": "hermes-mvp-smoke",
+      "projectTag": "hermes-mvp-smoke",
+      "tags": [
+        "project:hermes-mvp-smoke",
+        "hermes-mvp-smoke"
+      ],
+      "description": null
     }
   ],
   "projects": [
@@ -12263,6 +12286,17 @@
       ],
       "createdAt": "2026-10-30T07:40:36.606Z",
       "updatedAt": "2026-10-30T07:40:58.401Z"
+    },
+    {
+      "slug": "hermes-mvp-smoke",
+      "path": "projects/hermes-mvp-smoke",
+      "partitions": [
+        "originals",
+        "tattoos",
+        "generated"
+      ],
+      "createdAt": "2026-11-08T01:49:02.874Z",
+      "updatedAt": "2026-11-08T01:49:03.116Z"
     }
   ],
   "projectSchema": {

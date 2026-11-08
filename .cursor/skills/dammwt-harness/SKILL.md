@@ -41,3 +41,13 @@ npm run push:media --prefix "$DAMMWT_ROOT" -- \
 ```
 
 MCP (Claude Desktop **and** Cursor): `mcp/README.md` — same `node mcp/index.mjs` stdio server (`dam_update_notes`, `dam_export_feedback`).
+
+**Hermes plugin (preferred for Hermes sessions):** `$DAMMWT_ROOT/hermes-plugin/dammwt/` — validate / install / enable:
+
+```bash
+hermes plugins validate "$DAMMWT_ROOT/hermes-plugin/dammwt"
+hermes plugins install "file://$DAMMWT_ROOT/hermes-plugin/dammwt" --no-enable
+hermes plugins enable dammwt
+```
+
+Tools alone cover the autonomous loop (`dam_ensure_up` → project → push → queue → decide/notes → export). Bundled skills: `skill_view("dammwt:dammwt-harness")`. Docs: `docs/HARNESS-CONNECTIVITY.md`.

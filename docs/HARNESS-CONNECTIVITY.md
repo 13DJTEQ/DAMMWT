@@ -126,22 +126,48 @@ If the product only supports “actions” without OpenAPI import, define one ac
 
 ---
 
-## Hermes skill
+## Hermes plugin (preferred) + skills
 
-Installed skills (curl HTTP + `push:media`):
+Native plugin in-repo: [`hermes-plugin/dammwt/`](../hermes-plugin/dammwt/) — tools map 1:1 to the HTTP contract plus `dam_ensure_up` and `dam_export_feedback`. Wire contract stays OpenAPI on `:7842`; the plugin is packaging only.
+
+```bash
+cd "${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
+hermes plugins validate hermes-plugin/dammwt
+hermes plugins doctor hermes-plugin/dammwt --ci
+mkdir -p ~/.hermes/plugins
+ln -sfn "$PWD/hermes-plugin/dammwt" ~/.hermes/plugins/dammwt
+hermes plugins enable dammwt
+# or Git subdir: hermes plugins install "13DJTEQ/DAMMWT/hermes-plugin/dammwt"
+```
+
+Install into **user** plugins (`~/.hermes/plugins/`). Gateway sessions do **not** load `./.hermes/plugins/`. Plugins stay disabled until `enable`. Prefer the symlink for a local checkout (`file://` on the plugin dir fails because it is not its own git root). Full install table: [`hermes-plugin/dammwt/README.md`](../hermes-plugin/dammwt/README.md).
+
+Bundled skills are opt-in recipes (`skill_view("dammwt:dammwt-harness")`); the autonomous loop is complete through **tools alone**.
+
+Personal skill mirrors (curl HTTP + `push:media`, still valid):
 
 - `~/.hermes/skills/dammwt-harness/SKILL.md`
-- `~/.agents/skills/dammwt-harness/SKILL.md` (Claude / Cursor agents mirror)
+- `~/.agents/skills/dammwt-harness/SKILL.md`
 - Repo pointer: `.cursor/skills/dammwt-harness/`
 
-Treat DAM as an **HTTP skill**, not an MCP-only plugin:
+Autonomous sequence (tools or curl/CLI):
 
-1. Env: `DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE` — `npm run dam:token -- --export`.
-2. Steps: health → create project / push media (CLI or `POST /v1/assets`) → list queue → (human decides in Gallery **or** `POST /v1/approvals`) → lineage for next gen.
-3. Optional backends: `scripts/dam-api-examples.sh` or `npm run dam:decide`.
-4. Set `reviewedBy: "hermes"` (or the session id) on decisions.
+1. `dam_ensure_up` / `npm run dam:ensure`
+2. `dam_create_project` / `dam:section`
+3. Generate externally → `push:media` (or `dam_push_asset`)
+4. `dam_list_queue` (pending)
+5. Optional: `dam_submit_decision` + `dam_update_notes` **or** leave for Gallery
+6. `dam_export_feedback` → `dam_get_lineage` / `dam_refresh` for next gen
 
-Bytes skill: `dammwt-push-media`. Pair with this HTTP contract for queue/decisions.
+Set `reviewedBy: "hermes"` (or the session id) on decisions. Bytes skill: `dammwt-push-media`.
+
+### MVP done checklist
+
+- [ ] Plugin installs + **enabled**; tools cover health, ensure, project, push (CLI), queue, decide, notes, lineage, refresh, export
+- [ ] Unattended smoke: ensure → section → push → list queue → (optional decide/notes) → export
+- [ ] Notes editable after decide via HTTP / MCP / `dam:decide` / plugin
+- [ ] `npm run verify:api` + `hermes plugins validate` + `hermes plugins doctor … --ci` pass
+- [ ] No second SQLite writer; no root portable `plugin.json`
 
 ---
 
@@ -235,5 +261,6 @@ npm run dam:ensure
 | `npm run dam:token` | Print token path/value |
 | `npm run dam:ensure` | Health probe + best-effort Gallery launch |
 | `npm run dam:decide` | Thin HTTP CLI (incl. `notes`, `export`) |
-| `npm run verify:api` | Automated API acceptance |
-| `~/.hermes/skills/dammwt-harness/` | Hermes skill |
+| `npm run verify:api` | Automated API acceptance (notes + export) |
+| [`../hermes-plugin/dammwt/`](../hermes-plugin/dammwt/) | Native Hermes plugin (validate / install / enable) |
+| `~/.hermes/skills/dammwt-harness/` | Hermes skill mirror (curl recipes) |
