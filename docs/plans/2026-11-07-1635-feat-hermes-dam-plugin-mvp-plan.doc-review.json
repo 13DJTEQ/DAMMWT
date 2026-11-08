@@ -1,0 +1,22 @@
+{
+  "mode": "non-interactive",
+  "document": "docs/plans/2026-11-07-1635-feat-hermes-dam-plugin-mvp-plan.md",
+  "document_type": "unified-plan",
+  "fixes_applied": 0,
+  "proposed_fixes_count": 0,
+  "decisions_count": 0,
+  "fyi_count": 1,
+  "skipped_reason": "skill_unreachable",
+  "skipped_detail": "Pipeline deepen subagent cannot invoke full ce-doc-review persona dispatch (no nested subagents); deepen pass applied official Hermes plugins-guide research inline to KTD1/KTD5/U5/U7 and Research notes.",
+  "coverage": {
+    "coherence-reviewer": "inline-stand-in",
+    "feasibility-reviewer": "inline-stand-in",
+    "full_ce_doc_review": "did_not_start"
+  },
+  "fyi": [
+    "Re-run ce-doc-review interactively from parent if a multi-persona pass is desired before ce-work."
+  ],
+  "confidence_check": "Deepen pass (official plugins guide). External research refined KTD1/KTD5 and U5/U7; product KD1–KD5 unchanged. Confidence adequate for handoff.",
+  "deepened": "2026-11-07",
+  "research_shaped_plan": true
+}
