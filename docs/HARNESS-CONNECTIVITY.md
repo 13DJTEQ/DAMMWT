@@ -1,0 +1,266 @@
+# Harness connectivity (agent-agnostic)
+
+**Push for review:** start Electron (`npm run review:electron` from `DAMMWT_ROOT`) → create section (`dam:section --project <slug>`) → push (`push:media --project <slug>` with absolute paths) → open Gallery `Projects → <slug>` (status **All**). Full recipe: `dammwt-push-media` skill.
+
+**HTTP is the universal contract.** Any agent, IDE, script, or Comfy node that can call localhost REST can drive MWT DAM. MCP and CLI are optional adapters over the same routes — not required.
+
+Electron must be running (Gallery). The API shares the same `DamService` + SQLite as IPC. Spec: [`openapi-dam-api.yaml`](./openapi-dam-api.yaml). Architecture: [`AGENT-ELECTRON-SYNC.md`](./AGENT-ELECTRON-SYNC.md).
+
+**Env + adapter locations (once):** [`DAM-HARNESS.md`](./DAM-HARNESS.md) — `DAMMWT_ROOT`, `DAM_API_BASE`, `DAM_API_TOKEN` or `DAM_API_TOKEN_FILE`. Print token: `npm run dam:token`.
+
+---
+
+## Quick start (any harness)
+
+| Item | Value |
+|------|-------|
+| Base URL | `http://127.0.0.1:7842` (`DAM_API_BASE`) |
+| API prefix | `/v1` |
+| Auth | `Authorization: Bearer <token>` on every route **except** `GET /v1/health` |
+| Env contract | [`DAM-HARNESS.md`](./DAM-HARNESS.md) |
+| Token helper | `npm run dam:token` / `npm run dam:token -- --export` |
+| OpenAPI | [`docs/openapi-dam-api.yaml`](./openapi-dam-api.yaml) |
+
+```bash
+# Start Gallery (API comes up with main)
+export DAMMWT_ROOT="${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
+cd "$DAMMWT_ROOT"
+SEED=1 npm run review:electron
+
+eval "$(npm run dam:token -- --export)"
+BASE="$DAM_API_BASE"
+TOKEN="$DAM_API_TOKEN"
+
+# Health — no auth
+curl -s "$BASE/v1/health" | jq .
+
+# Queue / decision / lineage / reveal / refresh
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE/v1/queue?status=pending" | jq .
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE/v1/projects" | jq .
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"slug":"agent-sync-probe"}' "$BASE/v1/projects" | jq .
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"assetId":"EXAMPLE","decision":"love","reviewedBy":"any-harness","notes":"steer"}' \
+  "$BASE/v1/approvals" | jq .
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE/v1/assets/EXAMPLE/lineage" | jq .
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"localPath":"/abs/path/under/assets/media/…"}' "$BASE/v1/shell/reveal" | jq .
+curl -s -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/media/refresh" | jq .
+```
+
+Smoke script: `bash scripts/dam-api-examples.sh` (or `npm run dam:decide -- health`).
+
+**Bytes vs metadata:** stage files with `npm run push:media` / `dam:section` (or `POST /v1/assets` with `sourcePath`). HTTP owns queue, decisions, lineage, reveal, refresh.
+
+---
+
+## Core routes (v1)
+
+| Method | Path | Auth | Role |
+|--------|------|------|------|
+| `GET` | `/` · `/v1` | no | Discovery JSON (`health`, `openapi`, `base`) — browser-friendly |
+| `GET` | `/v1/health` | no | Fail-fast; `{ ok, dbReady, stats, apiVersion, electronPid }` |
+| `GET` | `/v1/projects` | yes | List project slugs |
+| `POST` | `/v1/projects` | yes | Create section `{ "slug" }` |
+| `GET` | `/v1/queue` | yes | `?status=` · `?project=` |
+| `GET` | `/v1/queue/stats` | yes | Aggregates |
+| `POST` | `/v1/approvals` | yes | Decision `{ assetId, decision, reviewedBy, notes? }` |
+| `GET` | `/v1/assets/:id/lineage` | yes | SoT chain + siblings |
+| `POST` | `/v1/shell/reveal` | yes | Finder reveal (allowed media roots only) |
+| `POST` | `/v1/media/refresh` | yes | Reseed from manifest |
+
+Full surface (assets push, ingest, history, resubmit, shell open/cloud): see OpenAPI / `src/api/localServer.ts`.
+
+Errors: `{ "ok": false, "error": "…" }` with 4xx/5xx. Unauthenticated → `401`.
+
+---
+
+## Claude (MCP or HTTP tool-use)
+
+**Option A — MCP (Claude Desktop or any MCP client):** point at `mcp/index.mjs` with `DAM_API_BASE` + `DAM_API_TOKEN_FILE`. Same snippet as Cursor — Claude Desktop uses `~/Library/Application Support/Claude/claude_desktop_config.json`. Tools map 1:1 to HTTP (`dam_health`, `dam_list_queue`, …). Side-by-side configs: [`mcp/README.md`](../mcp/README.md) · [`DAM-HARNESS.md`](./DAM-HARNESS.md).
+
+**Option B — HTTP tool-use / Skills:** give Claude a custom tool or skill that `fetch`/`curl`s the base URL with the bearer token. No MCP required — paste the OpenAPI or this doc’s route table. Example tool contract:
+
+- `dam_health()` → `GET /v1/health`
+- `dam_queue(status?, project?)` → `GET /v1/queue`
+- `dam_decide(assetId, decision, reviewedBy, notes?)` → `POST /v1/approvals`
+- `dam_lineage(assetId)` → `GET /v1/assets/:id/lineage`
+
+Set `reviewedBy` to something identifiable (`claude`, `claude-desktop`, …).
+
+---
+
+## Cursor MCP
+
+Same stdio server as Claude Desktop — config file is `~/.cursor/mcp.json` (snippets side by side in [`mcp/README.md`](../mcp/README.md)):
+
+```json
+{
+  "mcpServers": {
+    "dammwt": {
+      "command": "node",
+      "args": ["/Users/administrator/src/DAMMWT/mcp/index.mjs"],
+      "env": {
+        "DAM_API_BASE": "http://127.0.0.1:7842",
+        "DAM_API_TOKEN_FILE": "/Users/administrator/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token"
+      }
+    }
+  }
+}
+```
+
+Or use HTTP directly in agent prompts / shell: same curl as Quick start. Skill pointers: `.cursor/skills/dammwt-harness/`, `.cursor/skills/dammwt-push-media/`. Thin CLI: `npm run dam:decide -- …` · `npm run dam:token`.
+
+---
+
+## Grok (and other HTTP tool agents)
+
+Grok / xAI (and similar) agents that support custom HTTP or “call this API” tools should use the OpenAPI file as the tool schema source:
+
+1. Base URL `http://127.0.0.1:7842` (tunnel later for remote — Phase 2).
+2. Inject `Authorization: Bearer $DAM_API_TOKEN` on all non-health calls.
+3. Prefer `GET /v1/health` first; abort with “start Electron / `npm run review:electron`” on connection refused.
+4. Do not open SQLite yourself — always go through HTTP while Electron runs.
+
+If the product only supports “actions” without OpenAPI import, define one action per core route above with JSON bodies from the spec.
+
+---
+
+## Hermes plugin (preferred) + skills
+
+Native plugin in-repo: [`hermes-plugin/dammwt/`](../hermes-plugin/dammwt/) — tools map 1:1 to the HTTP contract plus `dam_ensure_up` and `dam_export_feedback`. Wire contract stays OpenAPI on `:7842`; the plugin is packaging only.
+
+```bash
+cd "${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
+hermes plugins validate hermes-plugin/dammwt
+hermes plugins doctor hermes-plugin/dammwt --ci
+mkdir -p ~/.hermes/plugins
+ln -sfn "$PWD/hermes-plugin/dammwt" ~/.hermes/plugins/dammwt
+hermes plugins enable dammwt
+# or Git subdir: hermes plugins install "13DJTEQ/DAMMWT/hermes-plugin/dammwt"
+```
+
+Install into **user** plugins (`~/.hermes/plugins/`). Gateway sessions do **not** load `./.hermes/plugins/`. Plugins stay disabled until `enable`. Prefer the symlink for a local checkout (`file://` on the plugin dir fails because it is not its own git root). Full install table: [`hermes-plugin/dammwt/README.md`](../hermes-plugin/dammwt/README.md).
+
+Bundled skills are opt-in recipes (`skill_view("dammwt:dammwt-harness")`); the autonomous loop is complete through **tools alone**.
+
+Personal skill mirrors (curl HTTP + `push:media`, still valid):
+
+- `~/.hermes/skills/dammwt-harness/SKILL.md`
+- `~/.agents/skills/dammwt-harness/SKILL.md`
+- Repo pointer: `.cursor/skills/dammwt-harness/`
+
+Autonomous sequence (tools or curl/CLI):
+
+1. `dam_ensure_up` / `npm run dam:ensure`
+2. `dam_create_project` / `dam:section`
+3. Generate externally → `push:media` (or `dam_push_asset`)
+4. `dam_list_queue` (pending)
+5. Optional: `dam_submit_decision` + `dam_update_notes` **or** leave for Gallery
+6. `dam_export_feedback` → `dam_get_lineage` / `dam_refresh` for next gen
+
+Set `reviewedBy: "hermes"` (or the session id) on decisions. Bytes skill: `dammwt-push-media`.
+
+### MVP done checklist
+
+- [ ] Plugin installs + **enabled**; tools cover health, ensure, project, push (CLI), queue, decide, notes, lineage, refresh, export
+- [ ] Unattended smoke: ensure → section → push → list queue → (optional decide/notes) → export
+- [ ] Notes editable after decide via HTTP / MCP / `dam:decide` / plugin
+- [ ] `npm run verify:api` + `hermes plugins validate` + `hermes plugins doctor … --ci` pass
+- [ ] No second SQLite writer; no root portable `plugin.json`
+
+---
+
+## Generic scripts / Comfy / curl
+
+Same machine as Electron:
+
+```bash
+export DAM_API_BASE=http://127.0.0.1:7842
+export DAM_API_TOKEN="$(cat "$HOME/Library/Application Support/@13djteq/mwt-dam-mvp/dam-api-token")"
+
+# After a Comfy export lands on disk:
+npm run push:media -- --file /abs/out.png --partition generated --project my-client --pipeline comfy
+
+# Or one HTTP round-trip:
+curl -s -X POST -H "Authorization: Bearer $DAM_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"sourcePath":"/abs/out.png","partition":"generated","project":"my-client","pipeline":"comfy"}' \
+  "$DAM_API_BASE/v1/assets"
+
+# Poll what Dave still needs:
+curl -s -H "Authorization: Bearer $DAM_API_TOKEN" \
+  "$DAM_API_BASE/v1/queue?status=pending&project=my-client"
+```
+
+Comfy custom nodes: `urllib`/`requests`/`fetch` against `/v1/*` with the bearer header. No Electron IPC from Python/Node outside main.
+
+Thin CLI (same contract):
+
+```bash
+npm run dam:ensure                                 # health; best-effort launch if down
+npm run dam:decide -- health
+npm run dam:decide -- queue --status pending --project my-client
+npm run dam:decide -- submit --asset-id <id> --decision love --by comfy-harness
+npm run dam:decide -- notes --asset-id <id> --notes 'hero — warmer grade'
+npm run dam:decide -- export --project my-client
+npm run dam:decide -- lineage --asset-id <id>
+npm run dam:decide -- refresh
+```
+
+HTTP notes / feedback (bearer required):
+
+```bash
+curl -s -X PATCH -H "Authorization: Bearer $DAM_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"notes":"hero — warmer grade"}' \
+  "$DAM_API_BASE/v1/assets/<id>/notes"
+
+curl -s -H "Authorization: Bearer $DAM_API_TOKEN" \
+  "$DAM_API_BASE/v1/projects/my-client/feedback"
+```
+
+---
+
+## Recommended agent loop (any harness)
+
+```
+dam:ensure → create project → (generate) → push asset(s)
+  → Dave reviews in Gallery (central UI; auto-refresh)
+    OR agent submit + optional notes amend
+  → export feedback / lineage → steer next generation
+```
+
+Agents push and read; humans decide in **MWT DAM** Gallery unless a harness explicitly posts approvals. Notes stay editable after love/keep/reject via `PATCH /v1/assets/:id/notes`.
+
+---
+
+## When the API is down
+
+Connection refused / timeout → Electron is not running or `DAM_API_DISABLE=1`.
+
+```bash
+cd "${DAMMWT_ROOT:-/Users/administrator/src/DAMMWT}"
+npm run dam:ensure
+# probe-only (CI / no GUI): npm run dam:ensure -- --no-launch
+# manual: SEED=1 npm run review:electron
+```
+
+`dam:ensure` is **CLI/plugin-side** (not `POST /v1/ensure`) — spawning Electron from inside Electron does not make sense. MCP tools surface **DAM API unreachable**. Do not open `dam.db` from a second process while Electron is up.
+
+---
+
+## Related
+
+| Doc / path | Role |
+|------------|------|
+| [`DAM-HARNESS.md`](./DAM-HARNESS.md) | Env contract + adapter locations (once) |
+| [`openapi-dam-api.yaml`](./openapi-dam-api.yaml) | Machine-readable contract |
+| [`AGENT-ELECTRON-SYNC.md`](./AGENT-ELECTRON-SYNC.md) | Phase 1 architecture |
+| [`../mcp/README.md`](../mcp/README.md) | Optional MCP adapter (Claude Desktop + Cursor) |
+| `src/api/localServer.ts` | Route implementation (source of truth for paths) |
+| `scripts/dam-api-examples.sh` | Curl smoke |
+| `npm run dam:token` | Print token path/value |
+| `npm run dam:ensure` | Health probe + best-effort Gallery launch |
+| `npm run dam:decide` | Thin HTTP CLI (incl. `notes`, `export`) |
+| `npm run verify:api` | Automated API acceptance (notes + export) |
+| [`../hermes-plugin/dammwt/`](../hermes-plugin/dammwt/) | Native Hermes plugin (validate / install / enable) |
+| `~/.hermes/skills/dammwt-harness/` | Hermes skill mirror (curl recipes) |

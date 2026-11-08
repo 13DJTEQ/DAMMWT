@@ -84,8 +84,9 @@ async function main(): Promise<void> {
     const expectedIngest = {
       total: 1,
       pending: 1,
-      approved: 0,
-      rejected: 0,
+      love: 0,
+      keep: 0,
+      reject: 0,
       changesRequested: 0,
     };
     if (JSON.stringify(statsAfterIngest) !== JSON.stringify(expectedIngest)) {
@@ -115,7 +116,7 @@ async function main(): Promise<void> {
 
     await damApi.submitApproval({
       assetId: 'day2-asset-1',
-      decision: 'approved',
+      decision: 'keep',
       reviewedBy: 'verify-day2',
     });
 
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
 
     const finalStats = await damApi.getQueueStats();
     console.log('final stats:', finalStats);
-    if (finalStats.approved !== 1 || finalStats.total !== 1) {
+    if (finalStats.keep !== 1 || finalStats.total !== 1) {
       throw new Error(`Unexpected final stats: ${JSON.stringify(finalStats)}`);
     }
 

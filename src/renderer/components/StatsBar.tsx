@@ -6,24 +6,26 @@ interface StatsBarProps {
 
 const PILLS: Array<{ key: keyof Omit<QueueStats, 'total'>; label: string }> = [
   { key: 'pending', label: 'Pending' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'changesRequested', label: 'Changes requested' },
+  { key: 'love', label: 'Love' },
+  { key: 'keep', label: 'Keep' },
+  { key: 'reject', label: 'Reject' },
+  { key: 'changesRequested', label: 'Changes' },
 ];
 
 export function StatsBar({ stats }: StatsBarProps): JSX.Element {
   const values = stats ?? {
     total: 0,
     pending: 0,
-    approved: 0,
-    rejected: 0,
+    love: 0,
+    keep: 0,
+    reject: 0,
     changesRequested: 0,
   };
 
   return (
     <div className="stats-bar" role="status" aria-label="Queue statistics">
       <span className="stats-total">
-        <strong>{values.total}</strong> in queue
+        <strong>{values.total}</strong> in gallery
       </span>
       <ul className="stats-pills">
         {PILLS.map(({ key, label }) => (

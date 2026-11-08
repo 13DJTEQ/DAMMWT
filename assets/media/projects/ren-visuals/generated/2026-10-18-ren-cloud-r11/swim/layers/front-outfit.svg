@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1440" viewBox="0 0 1080 1440">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d2d0cc"/>
+        <stop offset="0.55" stop-color="#c8c6c2"/>
+        <stop offset="1" stop-color="#bdbbb7"/>
+      </linearGradient>
+      <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#E6C7A8"/>
+        <stop offset="0.42" stop-color="#C9A27C"/>
+        <stop offset="1" stop-color="#A67C58"/>
+      </linearGradient>
+      <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#3A2A24"/>
+        <stop offset="0.35" stop-color="#1A120F"/>
+        <stop offset="1" stop-color="#0E0A09"/>
+      </linearGradient>
+      <linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2A2A2A"/>
+        <stop offset="0.4" stop-color="#141414"/>
+        <stop offset="1" stop-color="#0C0C0C"/>
+      </linearGradient>
+      <radialGradient id="cheek" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#C4846A" stop-opacity="0.35"/>
+        <stop offset="1" stop-color="#C4846A" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <path d="M 503.04 356.88 L 503.04 326.64 L 482.88 316.56 L 475.32 326.64 L 495.48 350.16 L 422.40 377.04 C 418.40 405.60 432.48 436.24 447.60 444.24 Q 540.00 450.24 632.40 444.24 C 647.52 436.24 661.60 405.60 657.60 377.04 L 584.52 350.16 L 604.68 326.64 L 597.12 316.56 L 576.96 326.64 L 576.96 356.88 Q 540.00 366.88 503.04 356.88 Z" fill="url(#cloth)"/><path d="M 503.04 356.88 L 503.04 326.64 L 482.88 316.56 L 475.32 326.64 L 495.48 350.16 L 422.40 377.04 C 418.40 405.60 432.48 436.24 447.60 444.24 Q 540.00 450.24 632.40 444.24 C 647.52 436.24 661.60 405.60 657.60 377.04 L 584.52 350.16 L 604.68 326.64 L 597.12 316.56 L 576.96 326.64 L 576.96 356.88 Q 540.00 366.88 503.04 356.88 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 472.80 366.96 Q 540.00 356.88 573.60 370.32" fill="none" stroke="#2C2C2C" stroke-width="6" stroke-linecap="round" opacity="0.35"/><path d="M 419.04 674.40 Q 540.00 682.40 660.96 674.40 C 664.32 702.96 644.16 736.56 610.56 753.36 C 587.04 763.44 566.88 736.56 550.08 713.04 Q 540.00 706.32 529.92 713.04 C 513.12 736.56 492.96 763.44 469.44 753.36 C 435.84 736.56 415.68 702.96 419.04 674.40 Z" fill="url(#cloth)"/><path d="M 419.04 674.40 Q 540.00 682.40 660.96 674.40 C 664.32 702.96 644.16 736.56 610.56 753.36 C 587.04 763.44 566.88 736.56 550.08 713.04 Q 540.00 706.32 529.92 713.04 C 513.12 736.56 492.96 763.44 469.44 753.36 C 435.84 736.56 415.68 702.96 419.04 674.40 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></svg>

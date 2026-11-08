@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1440" viewBox="0 0 1080 1440">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d2d0cc"/>
+        <stop offset="0.55" stop-color="#c8c6c2"/>
+        <stop offset="1" stop-color="#bdbbb7"/>
+      </linearGradient>
+      <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#E6C7A8"/>
+        <stop offset="0.42" stop-color="#C9A27C"/>
+        <stop offset="1" stop-color="#A67C58"/>
+      </linearGradient>
+      <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#3A2A24"/>
+        <stop offset="0.35" stop-color="#1A120F"/>
+        <stop offset="1" stop-color="#0E0A09"/>
+      </linearGradient>
+      <linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2A2A2A"/>
+        <stop offset="0.4" stop-color="#141414"/>
+        <stop offset="1" stop-color="#0C0C0C"/>
+      </linearGradient>
+      <radialGradient id="cheek" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#C4846A" stop-opacity="0.35"/>
+        <stop offset="1" stop-color="#C4846A" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <path d="M 492.96 103.20 C 435.84 136.80 408.96 254.40 422.40 363.60 C 435.84 481.20 408.96 556.80 447.60 615.60 C 472.80 640.80 489.60 565.20 469.44 430.80 C 456.00 313.20 472.80 195.60 503.04 145.20 Z" fill="url(#hair)"/><path d="M 459.36 195.60 C 442.56 313.20 452.64 447.60 462.72 548.40" fill="none" stroke="#3C2B26" stroke-width="3" stroke-linecap="round" opacity="0.7"/><path d="M 590.40 111.60 C 624.00 145.20 620.64 204.00 603.84 254.40 C 593.76 271.20 587.04 212.40 583.68 153.60 Z" fill="url(#hair)"/></svg>

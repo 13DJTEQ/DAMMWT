@@ -1,0 +1,30 @@
+---
+description: Gallery file links, media source-of-truth, and MWT red/gold branding
+alwaysApply: true
+---
+
+# Gallery, media SoT, branding
+
+## Media source of truth
+
+- Canonical staged store: `assets/media/` (+ mirror `web/public/media/`).
+- Manifest: `assets/media/manifest.json`. Inventory/docs: `docs/MEDIA-INVENTORY.md`.
+- Upstream vault (refresh): MWTDAM `tattoo-designs/tattoo/` via `npm run curate:media`.
+- Lineage: `parentSourceId` null = SoT original; walk parents to SoT; siblings share a parent.
+
+## Gallery file links
+
+| Field | Role |
+|-------|------|
+| `previewUrl` | Display only — Electron `file://…/assets/media/…`, web `/media/…` |
+| `localPath` | Disk path (manifest: repo-relative; Electron seed: absolute under `assets/media/`) |
+| `cloudUrl` | Optional `http(s)` Notion/Drive/CDN; often null in curated set |
+
+Electron IPC (paths under allowed media roots only): reveal in Finder, open local file, open cloud. Web: copy path / download `/media` / open cloud link. After schema or link changes, re-seed before review.
+
+## MWT branding (brief)
+
+- Brand assets: `assets/brand/` (hard-linked into web + renderer). See `docs/BRAND-ASSETS.md`.
+- Surfaces: navy `#0A192F`. Accent gold `#D4AF37` (not yellow). Cream text `#f4ede1`.
+- Gallery red–gold: gold primary; red `#FF0000` sparingly (borders/motifs). Red fills retired for new brand art.
+- Product naming in UI: **MWT DAM** / Media Wave Technology.

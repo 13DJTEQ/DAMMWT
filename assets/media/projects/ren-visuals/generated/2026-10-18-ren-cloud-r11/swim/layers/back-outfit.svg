@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1440" viewBox="0 0 1080 1440">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d2d0cc"/>
+        <stop offset="0.55" stop-color="#c8c6c2"/>
+        <stop offset="1" stop-color="#bdbbb7"/>
+      </linearGradient>
+      <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#E6C7A8"/>
+        <stop offset="0.42" stop-color="#C9A27C"/>
+        <stop offset="1" stop-color="#A67C58"/>
+      </linearGradient>
+      <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#3A2A24"/>
+        <stop offset="0.35" stop-color="#1A120F"/>
+        <stop offset="1" stop-color="#0E0A09"/>
+      </linearGradient>
+      <linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2A2A2A"/>
+        <stop offset="0.4" stop-color="#141414"/>
+        <stop offset="1" stop-color="#0C0C0C"/>
+      </linearGradient>
+      <radialGradient id="cheek" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#C4846A" stop-opacity="0.35"/>
+        <stop offset="1" stop-color="#C4846A" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <path d="M 435.84 388.80 L 422.40 377.04 L 419.04 422.40 L 439.20 441.30 L 445.92 433.74 Z" fill="url(#cloth)"/><path d="M 435.84 388.80 L 422.40 377.04 L 419.04 422.40 L 439.20 441.30 L 445.92 433.74 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 492.96 313.20 L 472.80 306.48 L 462.72 330.00 L 486.24 340.08 Z" fill="url(#cloth)"/><path d="M 492.96 313.20 L 472.80 306.48 L 462.72 330.00 L 486.24 340.08 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 644.16 388.80 L 657.60 377.04 L 660.96 422.40 L 640.80 441.30 L 634.08 433.74 Z" fill="url(#cloth)"/><path d="M 644.16 388.80 L 657.60 377.04 L 660.96 422.40 L 640.80 441.30 L 634.08 433.74 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 587.04 313.20 L 607.20 306.48 L 617.28 330.00 L 593.76 340.08 Z" fill="url(#cloth)"/><path d="M 587.04 313.20 L 607.20 306.48 L 617.28 330.00 L 593.76 340.08 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 442.56 433.74 L 637.44 433.74 L 637.44 441.30 L 442.56 441.30 Z" fill="url(#cloth)"/><path d="M 442.56 433.74 L 637.44 433.74 L 637.44 441.30 L 442.56 441.30 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M 417.36 674.40 Q 540.00 680.40 662.64 674.40 C 667.68 713.04 650.88 758.40 607.20 780.24 C 576.96 793.68 556.80 766.80 540.00 776.88 C 523.20 766.80 503.04 793.68 472.80 780.24 C 429.12 758.40 412.32 713.04 417.36 674.40 Z" fill="url(#cloth)"/><path d="M 417.36 674.40 Q 540.00 680.40 662.64 674.40 C 667.68 713.04 650.88 758.40 607.20 780.24 C 576.96 793.68 556.80 766.80 540.00 776.88 C 523.20 766.80 503.04 793.68 472.80 780.24 C 429.12 758.40 412.32 713.04 417.36 674.40 Z" fill="none" stroke="#3aa0ff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
